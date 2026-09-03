@@ -10,6 +10,8 @@
 #include <qdir.h>
 #include <qfile.h>
 #include <qfileinfo.h>
+#include <qapplication.h>
+#include <qclipboard.h>
 #include <qlistview.h>
 #include <qmessagebox.h>
 #include <qmultilineedit.h>
@@ -35,6 +37,7 @@ MainWindow::MainWindow(QWidget *parent, const char *name)
       view(0),
       modeButton(0),
       autosaveTimer(0),
+      todoFilter(""),
       darkTheme(false),
       hideDone(false),
       fontSize(12)
@@ -56,6 +59,8 @@ void MainWindow::buildUi()
     connect(up, SIGNAL(clicked()), this, SLOT(goUp()));
     QPushButton *fresh = new QPushButton("New", top);
     connect(fresh, SIGNAL(clicked()), this, SLOT(newFile()));
+    QPushButton *folder = new QPushButton("Dir", top);
+    connect(folder, SIGNAL(clicked()), this, SLOT(newFolder()));
     QPushButton *saveAs = new QPushButton("As", top);
     connect(saveAs, SIGNAL(clicked()), this, SLOT(saveAsFile()));
     QPushButton *ren = new QPushButton("Ren", top);
@@ -113,6 +118,11 @@ void MainWindow::buildUi()
     makeButton(bar, "Time", SLOT(insertTime()));
     makeButton(bar, "Undo", SLOT(undoEdit()));
     makeButton(bar, "Redo", SLOT(redoEdit()));
+    makeButton(bar, "Copy", SLOT(copyText()));
+    makeButton(bar, "Cut", SLOT(cutText()));
+    makeButton(bar, "Paste", SLOT(pasteText()));
+    makeButton(bar, "AllSel", SLOT(selectAllText()));
+    makeButton(bar, "Dup", SLOT(duplicateLine()));
     makeButton(bar, "Done", SLOT(todoToggleDone()));
     makeButton(bar, "A", SLOT(todoPriorityA()));
     makeButton(bar, "B", SLOT(todoPriorityB()));
@@ -122,6 +132,9 @@ void MainWindow::buildUi()
     makeButton(bar, "Due", SLOT(todoDue()));
     makeButton(bar, "Sort", SLOT(todoSortPriority()));
     makeButton(bar, "Hide", SLOT(toggleHideDone()));
+    makeButton(bar, "F+", SLOT(filterTodoProject()));
+    makeButton(bar, "F@", SLOT(filterTodoContext()));
+    makeButton(bar, "FClr", SLOT(clearTodoFilter()));
     makeButton(bar, "End", SLOT(moveDoneTasksToEnd()));
     makeButton(bar, "Clr", SLOT(clearDoneTasks()));
     makeButton(bar, "A+", SLOT(fontBigger()));
@@ -129,8 +142,8 @@ void MainWindow::buildUi()
     makeButton(bar, "Theme", SLOT(toggleTheme()));
     makeButton(bar, "Edit", SLOT(showEditor()));
     makeButton(bar, "View", SLOT(showView()));
-    bar->resize(1100, 28);
-    tools->resizeContents(1100, 28);
+    bar->resize(1380, 28);
+    tools->resizeContents(1380, 28);
     tools->setFixedHeight(44);
 
     autosaveTimer = new QTimer(this);
@@ -219,6 +232,7 @@ void MainWindow::showEditor()
     modeButton->setText("View");
     disconnect(modeButton, SIGNAL(clicked()), this, SLOT(showEditor()));
     connect(modeButton, SIGNAL(clicked()), this, SLOT(showView()));
+    touchEditor();
 }
 
 void MainWindow::showView()
@@ -234,9 +248,7 @@ void MainWindow::showView()
 void MainWindow::refreshView()
 {
     QValueList<MdBlockMap> map;
-    QString text = editor->text();
-    if (hideDone)
-        text = withoutDoneLines(text);
+    QString text = filteredPreviewText(editor->text());
     view->setText(MdParser::toRichText(text, &map));
 }
 
@@ -284,6 +296,26 @@ void MainWindow::newFile()
     FileUtil::writeUtf8Atomic(path, "# " + name + "\n\n");
     loadDirectory(currentDir);
     openFile(path);
+}
+
+void MainWindow::newFolder()
+{
+    bool ok = false;
+    QString name = TextPrompt::getText("New folder", "Name", "", &ok, this);
+    if (!ok || name.isEmpty())
+        return;
+    if (name.find('/') >= 0) {
+        QMessageBox::warning(this, "New folder", "Invalid name.");
+        return;
+    }
+    QString path = currentDir + "/" + name;
+    if (QFileInfo(path).exists()) {
+        QMessageBox::warning(this, "New folder", "Folder exists.");
+        return;
+    }
+    if (!FileUtil::ensureDir(path))
+        QMessageBox::warning(this, "New folder", "Cannot create folder.");
+    loadDirectory(currentDir);
 }
 
 void MainWindow::goUp()
@@ -773,6 +805,59 @@ void MainWindow::redoEdit()
     touchEditor();
 }
 
+void MainWindow::copyText()
+{
+    if (!editor->hasSelection())
+        return;
+    QApplication::clipboard()->setText(editor->selectionText());
+    statusBar()->message("Copied", 900);
+    touchEditor();
+}
+
+void MainWindow::cutText()
+{
+    if (!editor->hasSelection())
+        return;
+    QApplication::clipboard()->setText(editor->selectionText());
+    editor->deleteForward();
+    touchEditor();
+    scheduleAutosave();
+}
+
+void MainWindow::pasteText()
+{
+    QString text = QApplication::clipboard()->text();
+    if (text.isEmpty())
+        return;
+    replaceSelectionOrInsert(text);
+    touchEditor();
+    scheduleAutosave();
+}
+
+void MainWindow::selectAllText()
+{
+    int lastLine = editor->numLines() - 1;
+    if (lastLine < 0)
+        return;
+    int lastCol = 0;
+    lastCol = editor->textLine(lastLine).length();
+    editor->setSelection(0, 0, lastLine, lastCol);
+    touchEditor();
+}
+
+void MainWindow::duplicateLine()
+{
+    int first, last;
+    selectedLineRange(&first, &last);
+    QStringList lines;
+    for (int row = first; row <= last; ++row)
+        lines.append(editor->textLine(row));
+    editor->setCursorPosition(last, editor->textLine(last).length());
+    editor->insert("\n" + lines.join("\n"));
+    touchEditor();
+    scheduleAutosave();
+}
+
 void MainWindow::smartNewLine()
 {
     int row, col;
@@ -1015,11 +1100,75 @@ QString MainWindow::withoutDoneLines(const QString &text) const
     return kept.join("\n");
 }
 
+bool MainWindow::lineMatchesTodoFilter(const QString &line) const
+{
+    if (todoFilter.isEmpty())
+        return true;
+    return line.find(todoFilter) >= 0;
+}
+
+QString MainWindow::filteredPreviewText(const QString &text) const
+{
+    QStringList lines = QStringList::split('\n', text, true);
+    QStringList kept;
+    for (uint i = 0; i < lines.count(); ++i) {
+        QString s = lines[i].stripWhiteSpace();
+        if (hideDone && (s.left(2) == "x " || s.find("[x]") >= 0 || s.find("[X]") >= 0))
+            continue;
+        if (!lineMatchesTodoFilter(lines[i]))
+            continue;
+        kept.append(lines[i]);
+    }
+    return kept.join("\n");
+}
+
 void MainWindow::toggleHideDone()
 {
     hideDone = !hideDone;
     refreshView();
     statusBar()->message(hideDone ? "Done hidden" : "Done shown", 1200);
+}
+
+void MainWindow::filterTodoProject()
+{
+    bool ok = false;
+    QString value = TextPrompt::getText("Filter +", "Project", "", &ok, this);
+    if (!ok)
+        return;
+    if (value.isEmpty())
+        todoFilter = "";
+    else
+        todoFilter = "+" + value;
+    refreshView();
+    if (todoFilter.isEmpty())
+        statusBar()->message("Filter cleared", 1200);
+    else
+        statusBar()->message(todoFilter, 1200);
+}
+
+void MainWindow::filterTodoContext()
+{
+    bool ok = false;
+    QString value = TextPrompt::getText("Filter @", "Context", "", &ok, this);
+    if (!ok)
+        return;
+    if (value.isEmpty())
+        todoFilter = "";
+    else
+        todoFilter = "@" + value;
+    refreshView();
+    if (todoFilter.isEmpty())
+        statusBar()->message("Filter cleared", 1200);
+    else
+        statusBar()->message(todoFilter, 1200);
+}
+
+void MainWindow::clearTodoFilter()
+{
+    todoFilter = "";
+    hideDone = false;
+    refreshView();
+    statusBar()->message("Filter cleared", 1200);
 }
 
 void MainWindow::fontBigger()

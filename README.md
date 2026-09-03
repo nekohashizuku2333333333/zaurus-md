@@ -15,15 +15,17 @@ The current milestone is a compact Markor-style Markdown notebook:
 - Markdown to Qt rich text conversion with headings, inline strong/emphasis,
   code, links, quotes, rules, bullet lists, numbered lists, and task links
 - UTF-8 file read/write with atomic save
-- new, save, save as, rename, delete, autosave
+- new file, new folder, save, save as, rename, delete, autosave
 - formatting toolbar for bold, italic, code, headings, bullets, numbered lists,
   tasks, quotes, links, rules, indent/outdent, line move, date/time, undo/redo
 - multi-line selection handling for line formatting, indentation, task toggles,
   priorities, and line movement
+- copy, cut, paste, select all, and duplicate line/selection block actions
 - editor keyboard helpers for Tab/Shift-Tab indentation and smart Return
   continuation for lists, tasks, quotes, and numbered lists
 - todo.txt actions for done, priorities, project/context/due tags, sorting,
-  hiding completed lines, moving completed lines to the end, and clearing done
+  hiding completed lines, project/context preview filtering, moving completed
+  lines to the end, and clearing done
 - remote build script for the Zaurus SDK host
 
 Syntax highlighting is intentionally left out for now because Qt/E 2.3 text

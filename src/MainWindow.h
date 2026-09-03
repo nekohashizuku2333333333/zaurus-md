@@ -47,6 +47,7 @@ private slots:
     void saveAsFile();
     void renameFile();
     void deleteFile();
+    void newFolder();
     void findText();
     void replaceText();
     void replaceOne();
@@ -64,6 +65,14 @@ private slots:
     void todoDue();
     void todoSortPriority();
     void toggleHideDone();
+    void filterTodoProject();
+    void filterTodoContext();
+    void clearTodoFilter();
+    void copyText();
+    void cutText();
+    void pasteText();
+    void selectAllText();
+    void duplicateLine();
     void fontBigger();
     void fontSmaller();
     void toggleTheme();
@@ -97,6 +106,8 @@ private:
     QString stripTodoPriority(const QString &line) const;
     int todoPriorityRank(const QString &line) const;
     QString withoutDoneLines(const QString &text) const;
+    QString filteredPreviewText(const QString &text) const;
+    bool lineMatchesTodoFilter(const QString &line) const;
     void touchEditor();
 
     QString notesDir;
@@ -109,6 +120,7 @@ private:
     QPushButton *modeButton;
     QTimer *autosaveTimer;
     QString lastFind;
+    QString todoFilter;
     bool darkTheme;
     bool hideDone;
     int fontSize;
