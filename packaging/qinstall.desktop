@@ -1,0 +1,13 @@
+[Desktop Entry]
+CanFastload = 0
+Display = 640x480/144dpi,480x640/144dpi
+Exec = qinstall
+HidePrivilege = 1
+Icon = qinstall_icn.png
+MimeType = application/ipkg
+Name = Add/Remove Software
+Name[de] = Software
+Name[ja] = ソフトウェアの追加/削除
+Name[zh_CN] = 添加/删除
+Type = Application
+Type[de] = Anwendung

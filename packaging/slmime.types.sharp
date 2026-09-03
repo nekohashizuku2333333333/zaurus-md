@@ -1,0 +1,8 @@
+# mime type vs dir. for sl
+Image_Files		image/
+Text_Files		text/plain
+Music_Files		audio/
+Video_Files		video/
+Web_Files		text/html
+Web_Files/Pagemeno_Files	application/nf-mht
+Web_Files/Bookmark_Files	application/nf-url

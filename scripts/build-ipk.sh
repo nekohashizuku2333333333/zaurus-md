@@ -18,6 +18,7 @@ chmod 755 "$IPKDIR/home/QtPalmtop/bin/$APP"
 cp tools/restore-file-associations.sh "$IPKDIR/home/QtPalmtop/bin/restore-file-associations"
 chmod 755 "$IPKDIR/home/QtPalmtop/bin/restore-file-associations"
 cp packaging/mime.types.qtopia17 "$IPKDIR/home/QtPalmtop/etc/mime.types.qtopia17"
+cp packaging/slmime.types.sharp "$IPKDIR/home/QtPalmtop/etc/slmime.types.sharp"
 
 cat > "$IPKDIR/home/QtPalmtop/apps/Applications/$APP.desktop" <<EOF
 [Desktop Entry]
@@ -41,7 +42,7 @@ MimeType=text/x-markdown;text/markdown
 CanFastload=0
 EOF
 
-cp packaging/qipkg.desktop "$IPKDIR/home/QtPalmtop/apps/Settings/qipkg.desktop"
+cp packaging/qinstall.desktop "$IPKDIR/home/QtPalmtop/apps/Settings/qinstall.desktop"
 
 cat > "$IPKDIR/CONTROL/control" <<EOF
 Package: zaurusmd

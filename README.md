@@ -22,9 +22,9 @@ The current milestone is a compact Markor-style Markdown notebook:
   unsaved edits; autosave no longer writes behind the prompt
 - desktop files install to both Applications and Document with `%f` file
   arguments and Markdown MIME declarations
-- package restores the full Qtopia 1.7 `mime.types` baseline first, restoring
-  `.ipk -> application/ipkg -> qipkg`, `text/plain`, images, archives, and the
-  other stock associations; it then appends missing Markdown MIME mappings
+- package restores the full Qtopia 1.7 `mime.types` baseline first, restores
+  the Sharp `slmime.types` category table, and maps `.ipk` back to
+  `qinstall.desktop` rather than the incompatible SDK `qipkg.desktop`
 - file manager launches are handled through Qtopia's document app path:
   `showMainDocumentWidget()` plus `setDocument(const QString&)`
 - paged editing toolbar with no scroll bar; `More` rotates the labels/actions
