@@ -10,6 +10,6 @@ int main(int argc, char **argv)
     MainWindow mw;
     if (argc > 1)
         mw.openInitialFile(QString::fromLocal8Bit(argv[1]));
-    app.showMainWidget(&mw);
+    app.showMainDocumentWidget(&mw);
     return app.exec();
 }

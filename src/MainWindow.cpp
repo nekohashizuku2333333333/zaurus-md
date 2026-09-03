@@ -158,6 +158,11 @@ void MainWindow::openInitialFile(const QString &path)
         openFile(info.absFilePath());
 }
 
+void MainWindow::setDocument(const QString &path)
+{
+    openInitialFile(path);
+}
+
 void MainWindow::resizeEvent(QResizeEvent *event)
 {
     QMainWindow::resizeEvent(event);

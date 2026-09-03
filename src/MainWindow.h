@@ -23,6 +23,9 @@ public:
     MainWindow(QWidget *parent = 0, const char *name = 0);
     void openInitialFile(const QString &path);
 
+public slots:
+    void setDocument(const QString &path);
+
 protected:
     void closeEvent(QCloseEvent *event);
     void resizeEvent(QResizeEvent *event);
