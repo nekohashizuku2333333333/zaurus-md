@@ -40,15 +40,15 @@ void MainWindow::buildUi()
     QHBox *top = new QHBox(root);
     QPushButton *back = new QPushButton("<", top);
     connect(back, SIGNAL(clicked()), this, SLOT(showBrowser()));
-    modeButton = new QPushButton("查看", top);
+    modeButton = new QPushButton("View", top);
     connect(modeButton, SIGNAL(clicked()), this, SLOT(showView()));
-    QPushButton *save = new QPushButton("保存", top);
+    QPushButton *save = new QPushButton("Save", top);
     connect(save, SIGNAL(clicked()), this, SLOT(saveFile()));
 
     stack = new QWidgetStack(root);
     browser = new QListView(stack);
-    browser->addColumn("名称");
-    browser->addColumn("修改时间");
+    browser->addColumn("Name");
+    browser->addColumn("Modified");
     connect(browser, SIGNAL(doubleClicked(QListViewItem *)), this, SLOT(openSelected(QListViewItem *)));
 
     editor = new QMultiLineEdit(stack);
@@ -62,9 +62,9 @@ void MainWindow::buildUi()
     QHBox *bar = new QHBox(root);
     QPushButton *task = new QPushButton("[ ]", bar);
     connect(task, SIGNAL(clicked()), this, SLOT(insertTask()));
-    QPushButton *edit = new QPushButton("编辑", bar);
+    QPushButton *edit = new QPushButton("Edit", bar);
     connect(edit, SIGNAL(clicked()), this, SLOT(showEditor()));
-    QPushButton *preview = new QPushButton("查看", bar);
+    QPushButton *preview = new QPushButton("View", bar);
     connect(preview, SIGNAL(clicked()), this, SLOT(showView()));
 
     stack->raiseWidget(browser);
@@ -130,7 +130,7 @@ void MainWindow::showBrowser()
 void MainWindow::showEditor()
 {
     stack->raiseWidget(editor);
-    modeButton->setText("查看");
+    modeButton->setText("View");
     disconnect(modeButton, SIGNAL(clicked()), this, SLOT(showEditor()));
     connect(modeButton, SIGNAL(clicked()), this, SLOT(showView()));
 }
@@ -140,7 +140,7 @@ void MainWindow::showView()
     saveFile();
     refreshView();
     stack->raiseWidget(view);
-    modeButton->setText("编辑");
+    modeButton->setText("Edit");
     disconnect(modeButton, SIGNAL(clicked()), this, SLOT(showView()));
     connect(modeButton, SIGNAL(clicked()), this, SLOT(showEditor()));
 }
@@ -156,7 +156,7 @@ void MainWindow::saveFile()
     if (currentFile.isEmpty())
         return;
     FileUtil::writeUtf8Atomic(currentFile, editor->text());
-    statusBar()->message("已保存", 1000);
+    statusBar()->message("Saved", 1000);
 }
 
 void MainWindow::toggleTask(int lineNumber)

@@ -1,18 +1,17 @@
 #include "FileUtil.h"
 
+#include <qcstring.h>
 #include <qdir.h>
 #include <qfile.h>
-#include <qtextstream.h>
 
 bool FileUtil::readUtf8(const QString &path, QString *text)
 {
     QFile f(path);
     if (!f.open(IO_ReadOnly))
         return false;
-    QTextStream ts(&f);
-    ts.setEncoding(QTextStream::UnicodeUTF8);
-    *text = ts.read();
+    QByteArray data = f.readAll();
     f.close();
+    *text = QString::fromUtf8(data.data(), data.size());
     return true;
 }
 
@@ -22,9 +21,12 @@ bool FileUtil::writeUtf8Atomic(const QString &path, const QString &text)
     QFile f(tmp);
     if (!f.open(IO_WriteOnly | IO_Truncate))
         return false;
-    QTextStream ts(&f);
-    ts.setEncoding(QTextStream::UnicodeUTF8);
-    ts << text;
+    QCString data = text.utf8();
+    if (f.writeBlock(data.data(), data.length()) != (int)data.length()) {
+        f.close();
+        QFile::remove(tmp);
+        return false;
+    }
     f.close();
     QFile::remove(path);
     return QDir().rename(tmp, path);
@@ -37,4 +39,3 @@ bool FileUtil::ensureDir(const QString &path)
         return true;
     return d.mkdir(path);
 }
-
