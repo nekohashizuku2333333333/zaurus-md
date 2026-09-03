@@ -18,7 +18,6 @@
 #include <qobjectlist.h>
 #include <qpalette.h>
 #include <qpushbutton.h>
-#include <qscrollview.h>
 #include <qstatusbar.h>
 #include <qdatetime.h>
 #include <qfont.h>
@@ -40,10 +39,12 @@ MainWindow::MainWindow(QWidget *parent, const char *name)
       modeButton(0),
       fileBar(0),
       docBar(0),
+      toolBar(0),
       autosaveTimer(0),
       todoFilter(""),
       darkTheme(false),
       hideDone(false),
+      toolPage(0),
       fontSize(12)
 {
     FileUtil::ensureDir(notesDir);
@@ -87,65 +88,9 @@ void MainWindow::buildUi()
     stack->addWidget(editor, 1);
     stack->addWidget(view, 2);
 
-    QScrollView *tools = new QScrollView(root);
-    tools->setVScrollBarMode(QScrollView::AlwaysOff);
-    tools->setHScrollBarMode(QScrollView::Auto);
-    QWidget *bar = new QWidget(tools->viewport());
-    tools->addChild(bar);
-    makeButton(bar, "B", SLOT(wrapBold()));
-    makeButton(bar, "I", SLOT(wrapItalic()));
-    makeButton(bar, "`", SLOT(wrapCode()));
-    makeButton(bar, "H", SLOT(cycleHeading()));
-    makeButton(bar, "-", SLOT(toggleBullet()));
-    makeButton(bar, "1.", SLOT(toggleNumber()));
-    makeButton(bar, "[ ]", SLOT(toggleTaskCurrent()));
-    makeButton(bar, ">", SLOT(quoteLine()));
-    makeButton(bar, "Link", SLOT(insertLink()));
-    makeButton(bar, "Img", SLOT(insertImage()));
-    makeButton(bar, "Tbl", SLOT(insertTable()));
-    makeButton(bar, "Code", SLOT(insertCodeBlock()));
-    makeButton(bar, "Find", SLOT(findText()));
-    makeButton(bar, "Next", SLOT(findNext()));
-    makeButton(bar, "R1", SLOT(replaceOne()));
-    makeButton(bar, "All", SLOT(replaceText()));
-    makeButton(bar, "---", SLOT(insertRule()));
-    makeButton(bar, ">>", SLOT(indentLine()));
-    makeButton(bar, "<<", SLOT(outdentLine()));
-    makeButton(bar, "Up", SLOT(moveLineUp()));
-    makeButton(bar, "Dn", SLOT(moveLineDown()));
-    makeButton(bar, "Date", SLOT(insertDate()));
-    makeButton(bar, "Time", SLOT(insertTime()));
-    makeButton(bar, "Undo", SLOT(undoEdit()));
-    makeButton(bar, "Redo", SLOT(redoEdit()));
-    makeButton(bar, "Copy", SLOT(copyText()));
-    makeButton(bar, "Cut", SLOT(cutText()));
-    makeButton(bar, "Paste", SLOT(pasteText()));
-    makeButton(bar, "AllSel", SLOT(selectAllText()));
-    makeButton(bar, "Dup", SLOT(duplicateLine()));
-    makeButton(bar, "Done", SLOT(todoToggleDone()));
-    makeButton(bar, "Chk", SLOT(markSelectedTasksDone()));
-    makeButton(bar, "Open", SLOT(markSelectedTasksOpen()));
-    makeButton(bar, "A", SLOT(todoPriorityA()));
-    makeButton(bar, "B", SLOT(todoPriorityB()));
-    makeButton(bar, "C", SLOT(todoPriorityC()));
-    makeButton(bar, "+", SLOT(todoProject()));
-    makeButton(bar, "@", SLOT(todoContext()));
-    makeButton(bar, "Due", SLOT(todoDue()));
-    makeButton(bar, "Sort", SLOT(todoSortPriority()));
-    makeButton(bar, "Hide", SLOT(toggleHideDone()));
-    makeButton(bar, "F+", SLOT(filterTodoProject()));
-    makeButton(bar, "F@", SLOT(filterTodoContext()));
-    makeButton(bar, "FClr", SLOT(clearTodoFilter()));
-    makeButton(bar, "End", SLOT(moveDoneTasksToEnd()));
-    makeButton(bar, "Clr", SLOT(clearDoneTasks()));
-    makeButton(bar, "A+", SLOT(fontBigger()));
-    makeButton(bar, "A-", SLOT(fontSmaller()));
-    makeButton(bar, "Theme", SLOT(toggleTheme()));
-    makeButton(bar, "Edit", SLOT(showEditor()));
-    makeButton(bar, "View", SLOT(showView()));
-    bar->resize(1520, 28);
-    tools->resizeContents(1520, 28);
-    tools->setFixedHeight(44);
+    toolBar = new QWidget(root);
+    toolBar->setFixedHeight(30);
+    rebuildToolBar();
 
     autosaveTimer = new QTimer(this);
     connect(autosaveTimer, SIGNAL(timeout()), this, SLOT(saveFile()));
@@ -161,13 +106,89 @@ QPushButton *MainWindow::makeButton(QWidget *parent, const char *text, const cha
 {
     QPushButton *button = new QPushButton(text, parent);
     button->setFont(QFont("song", 10));
-    button->setFixedSize(34, 24);
+    button->setFixedSize(38, 24);
     QObjectList *siblings = parent->queryList("QPushButton");
     int index = siblings ? siblings->count() - 1 : 0;
     delete siblings;
-    button->move(index * 35, 1);
+    button->move(index * 39, 3);
     connect(button, SIGNAL(clicked()), this, slot);
     return button;
+}
+
+void MainWindow::rebuildToolBar()
+{
+    QObjectList *children = toolBar->queryList("QPushButton");
+    if (children) {
+        QObjectListIt it(*children);
+        QObject *obj;
+        while ((obj = it.current()) != 0) {
+            ++it;
+            delete obj;
+        }
+        delete children;
+    }
+
+    if (toolPage == 0) {
+        makeButton(toolBar, "B", SLOT(wrapBold()));
+        makeButton(toolBar, "I", SLOT(wrapItalic()));
+        makeButton(toolBar, "`", SLOT(wrapCode()));
+        makeButton(toolBar, "H", SLOT(cycleHeading()));
+        makeButton(toolBar, "-", SLOT(toggleBullet()));
+        makeButton(toolBar, "1.", SLOT(toggleNumber()));
+        makeButton(toolBar, "[ ]", SLOT(toggleTaskCurrent()));
+    } else if (toolPage == 1) {
+        makeButton(toolBar, ">", SLOT(quoteLine()));
+        makeButton(toolBar, "Link", SLOT(insertLink()));
+        makeButton(toolBar, "Img", SLOT(insertImage()));
+        makeButton(toolBar, "Tbl", SLOT(insertTable()));
+        makeButton(toolBar, "Code", SLOT(insertCodeBlock()));
+        makeButton(toolBar, "---", SLOT(insertRule()));
+        makeButton(toolBar, "Date", SLOT(insertDate()));
+    } else if (toolPage == 2) {
+        makeButton(toolBar, "Find", SLOT(findText()));
+        makeButton(toolBar, "Next", SLOT(findNext()));
+        makeButton(toolBar, "R1", SLOT(replaceOne()));
+        makeButton(toolBar, "All", SLOT(replaceText()));
+        makeButton(toolBar, "Undo", SLOT(undoEdit()));
+        makeButton(toolBar, "Redo", SLOT(redoEdit()));
+        makeButton(toolBar, "Dup", SLOT(duplicateLine()));
+    } else if (toolPage == 3) {
+        makeButton(toolBar, ">>", SLOT(indentLine()));
+        makeButton(toolBar, "<<", SLOT(outdentLine()));
+        makeButton(toolBar, "Up", SLOT(moveLineUp()));
+        makeButton(toolBar, "Dn", SLOT(moveLineDown()));
+        makeButton(toolBar, "Copy", SLOT(copyText()));
+        makeButton(toolBar, "Cut", SLOT(cutText()));
+        makeButton(toolBar, "Paste", SLOT(pasteText()));
+    } else {
+        if (toolPage == 4) {
+            makeButton(toolBar, "Done", SLOT(todoToggleDone()));
+            makeButton(toolBar, "Chk", SLOT(markSelectedTasksDone()));
+            makeButton(toolBar, "Open", SLOT(markSelectedTasksOpen()));
+            makeButton(toolBar, "A", SLOT(todoPriorityA()));
+            makeButton(toolBar, "B", SLOT(todoPriorityB()));
+            makeButton(toolBar, "C", SLOT(todoPriorityC()));
+            makeButton(toolBar, "+", SLOT(todoProject()));
+        } else {
+            makeButton(toolBar, "@", SLOT(todoContext()));
+            makeButton(toolBar, "Due", SLOT(todoDue()));
+            makeButton(toolBar, "Sort", SLOT(todoSortPriority()));
+            makeButton(toolBar, "Hide", SLOT(toggleHideDone()));
+            makeButton(toolBar, "F+", SLOT(filterTodoProject()));
+            makeButton(toolBar, "F@", SLOT(filterTodoContext()));
+            makeButton(toolBar, "Clr", SLOT(clearDoneTasks()));
+        }
+    }
+    makeButton(toolBar, "More", SLOT(nextToolPage()));
+}
+
+void MainWindow::nextToolPage()
+{
+    ++toolPage;
+    if (toolPage > 5)
+        toolPage = 0;
+    rebuildToolBar();
+    touchEditor();
 }
 
 QPushButton *MainWindow::makeTopButton(QWidget *parent, const char *text, const char *slot)

@@ -84,11 +84,13 @@ private slots:
     void toggleTheme();
     void autosaveTick();
     void smartNewLine();
+    void nextToolPage();
 
 private:
     void buildUi();
     QPushButton *makeButton(QWidget *parent, const char *text, const char *slot);
     QPushButton *makeTopButton(QWidget *parent, const char *text, const char *slot);
+    void rebuildToolBar();
     void loadDirectory(const QString &path);
     void openFile(const QString &path);
     void refreshView();
@@ -127,12 +129,14 @@ private:
     QPushButton *modeButton;
     QWidget *fileBar;
     QWidget *docBar;
+    QWidget *toolBar;
     QTimer *autosaveTimer;
     QString lastFind;
     QString todoFilter;
     QValueList<int> previewLineMap;
     bool darkTheme;
     bool hideDone;
+    int toolPage;
     int fontSize;
 };
 
