@@ -16,6 +16,8 @@ The current milestone is a compact Markor-style Markdown notebook:
   editor, with compact Zaurus-sized buttons
 - document bar uses full `View` and `Save` labels, and the title is
   `Zaurus MDEditor` or `Zaurus MDEditor - <file>`
+- document save state is shown on the right side of the document bar as
+  `Saved` or `Modified`
 - leaving a document for the file browser, or closing the app, prompts to save
   unsaved edits; autosave no longer writes behind the prompt
 - desktop files install to both Applications and Document with `%f` file

@@ -13,6 +13,7 @@ class QWidgetStack;
 class MdView;
 class QButton;
 class QTimer;
+class QLabel;
 class QCloseEvent;
 class QResizeEvent;
 
@@ -111,8 +112,10 @@ private:
     void setToolLabel(int index, const char *text);
     void runTool(int index);
     void layoutToolButtons();
+    void layoutTopBars();
     bool confirmSaveIfNeeded();
     void updateCaption();
+    void updateSaveIndicator();
     void loadDirectory(const QString &path);
     void openFile(const QString &path);
     void refreshView();
@@ -149,6 +152,7 @@ private:
     MdEdit *editor;
     MdView *view;
     QPushButton *modeButton;
+    QLabel *saveIndicator;
     QWidget *fileBar;
     QWidget *docBar;
     QWidget *toolBar;

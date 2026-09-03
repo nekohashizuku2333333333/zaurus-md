@@ -13,6 +13,7 @@
 #include <qapplication.h>
 #include <qclipboard.h>
 #include <qevent.h>
+#include <qlabel.h>
 #include <qlistview.h>
 #include <qmessagebox.h>
 #include <qmultilineedit.h>
@@ -38,6 +39,7 @@ MainWindow::MainWindow(QWidget *parent, const char *name)
       editor(0),
       view(0),
       modeButton(0),
+      saveIndicator(0),
       fileBar(0),
       docBar(0),
       toolBar(0),
@@ -73,6 +75,9 @@ void MainWindow::buildUi()
     makeTopButton(docBar, "<", SLOT(showBrowser()));
     modeButton = makeTopButton(docBar, "View", SLOT(showView()));
     makeTopButton(docBar, "Save", SLOT(saveFile()));
+    saveIndicator = new QLabel("", docBar);
+    saveIndicator->setFont(QFont("song", 10));
+    saveIndicator->setAlignment(AlignRight | AlignVCenter);
 
     stack = new QWidgetStack(root);
     browser = new QListView(stack);
@@ -109,6 +114,7 @@ void MainWindow::buildUi()
     connect(toolButtons[7], SIGNAL(clicked()), this, SLOT(tool7()));
     connect(toolButtons[8], SIGNAL(clicked()), this, SLOT(tool8()));
     connect(toolButtons[9], SIGNAL(clicked()), this, SLOT(tool9()));
+    layoutTopBars();
     layoutToolButtons();
     rebuildToolBar();
 
@@ -121,6 +127,7 @@ void MainWindow::buildUi()
     docBar->hide();
     fileBar->show();
     updateCaption();
+    updateSaveIndicator();
 }
 
 QPushButton *MainWindow::makeButton(QWidget *parent, const char *text, const char *slot)
@@ -154,7 +161,18 @@ void MainWindow::openInitialFile(const QString &path)
 void MainWindow::resizeEvent(QResizeEvent *event)
 {
     QMainWindow::resizeEvent(event);
+    layoutTopBars();
     layoutToolButtons();
+}
+
+void MainWindow::layoutTopBars()
+{
+    if (saveIndicator) {
+        int w = width();
+        if (w < 240)
+            w = 240;
+        saveIndicator->setGeometry(w - 122, 1, 118, 30);
+    }
 }
 
 void MainWindow::layoutToolButtons()
@@ -271,6 +289,17 @@ void MainWindow::setToolLabel(int index, const char *text)
         return;
     toolButtons[index]->setText(text);
     toolButtons[index]->show();
+}
+
+void MainWindow::updateSaveIndicator()
+{
+    if (!saveIndicator)
+        return;
+    if (currentFile.isEmpty()) {
+        saveIndicator->setText("");
+        return;
+    }
+    saveIndicator->setText(editor->edited() ? "Modified" : "Saved");
 }
 
 void MainWindow::nextToolPage()
@@ -457,6 +486,7 @@ void MainWindow::showBrowser()
         return;
     currentFile = QString::null;
     updateCaption();
+    updateSaveIndicator();
     docBar->hide();
     fileBar->show();
     stack->raiseWidget(browser);
@@ -471,6 +501,7 @@ void MainWindow::showEditor()
     modeButton->setText("View");
     disconnect(modeButton, SIGNAL(clicked()), this, SLOT(showEditor()));
     connect(modeButton, SIGNAL(clicked()), this, SLOT(showView()));
+    updateSaveIndicator();
     touchEditor();
 }
 
@@ -501,7 +532,7 @@ void MainWindow::saveFile()
         autosaveTimer->stop();
     FileUtil::writeUtf8Atomic(currentFile, editor->text());
     editor->setEdited(false);
-    statusBar()->message("Saved", 1000);
+    updateSaveIndicator();
 }
 
 void MainWindow::toggleTask(int lineNumber)
@@ -882,6 +913,7 @@ void MainWindow::scheduleAutosave()
 void MainWindow::autosaveTick()
 {
     scheduleAutosave();
+    updateSaveIndicator();
 }
 
 void MainWindow::applyFontSize()
