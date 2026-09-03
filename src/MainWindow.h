@@ -132,7 +132,7 @@ private:
     QWidget *fileBar;
     QWidget *docBar;
     QWidget *toolBar;
-    QPushButton *toolButtons[8];
+    QPushButton *toolButtons[10];
     QTimer *autosaveTimer;
     QString lastFind;
     QString todoFilter;

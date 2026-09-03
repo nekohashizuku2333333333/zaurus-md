@@ -16,6 +16,8 @@ The current milestone is a compact Markor-style Markdown notebook:
   editor, with compact Zaurus-sized buttons
 - paged editing toolbar with no scroll bar; `More` rotates the labels/actions
   of fixed buttons instead of destroying widgets at runtime
+- bottom toolbar uses ten fixed 63px buttons to fill the 640px landscape
+  screen, and the file browser lists real directory entries once
 - explicit `song` QPF font selection for the app, editor, preview, browser,
   and toolbar controls
 - Markdown to Qt rich text conversion with headings, inline strong/emphasis,
