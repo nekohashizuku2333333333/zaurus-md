@@ -7,6 +7,7 @@ HEADERS = \
     src/MainWindow.h \
     src/MdEdit.h \
     src/MdView.h \
+    src/TextPrompt.h \
     src/MdParser.h \
     src/TodoTxt.h \
     src/FileUtil.h
@@ -15,6 +16,7 @@ SOURCES = \
     src/main.cpp \
     src/MainWindow.cpp \
     src/MdView.cpp \
+    src/TextPrompt.cpp \
     src/MdParser.cpp \
     src/TodoTxt.cpp \
     src/FileUtil.cpp

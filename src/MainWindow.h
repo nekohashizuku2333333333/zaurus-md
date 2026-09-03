@@ -40,8 +40,25 @@ private slots:
     void indentLine();
     void outdentLine();
     void insertDate();
+    void insertTime();
     void undoEdit();
     void redoEdit();
+    void saveAsFile();
+    void renameFile();
+    void deleteFile();
+    void findText();
+    void replaceText();
+    void moveLineUp();
+    void moveLineDown();
+    void moveDoneTasksToEnd();
+    void clearDoneTasks();
+    void todoToggleDone();
+    void todoPriorityA();
+    void todoPriorityB();
+    void todoPriorityC();
+    void todoProject();
+    void todoContext();
+    void todoDue();
 
 private:
     void buildUi();
@@ -55,6 +72,11 @@ private:
     void replaceCurrentLine(const QString &line);
     void setCurrentLineText(int lineNo, const QString &line);
     void applyLinePrefix(const QString &prefix, bool numbered);
+    void replaceAllText(const QString &text, int cursorLine);
+    QString currentSelectedPath() const;
+    bool isTodoFile() const;
+    void setTodoPriority(const QString &priority);
+    void appendToCurrentLine(const QString &text);
     void touchEditor();
 
     QString notesDir;

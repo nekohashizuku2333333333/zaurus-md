@@ -4,6 +4,8 @@
 #include "MdEdit.h"
 #include "MdParser.h"
 #include "MdView.h"
+#include "TextPrompt.h"
+#include "TodoTxt.h"
 
 #include <qdir.h>
 #include <qfile.h>
@@ -47,6 +49,12 @@ void MainWindow::buildUi()
     connect(up, SIGNAL(clicked()), this, SLOT(goUp()));
     QPushButton *fresh = new QPushButton("New", top);
     connect(fresh, SIGNAL(clicked()), this, SLOT(newFile()));
+    QPushButton *saveAs = new QPushButton("As", top);
+    connect(saveAs, SIGNAL(clicked()), this, SLOT(saveAsFile()));
+    QPushButton *ren = new QPushButton("Ren", top);
+    connect(ren, SIGNAL(clicked()), this, SLOT(renameFile()));
+    QPushButton *del = new QPushButton("Del", top);
+    connect(del, SIGNAL(clicked()), this, SLOT(deleteFile()));
     modeButton = new QPushButton("View", top);
     connect(modeButton, SIGNAL(clicked()), this, SLOT(showView()));
     QPushButton *save = new QPushButton("Save", top);
@@ -76,16 +84,32 @@ void MainWindow::buildUi()
     makeButton(bar1, "[ ]", SLOT(toggleTaskCurrent()));
     makeButton(bar1, ">", SLOT(quoteLine()));
     makeButton(bar1, "Link", SLOT(insertLink()));
+    makeButton(bar1, "Find", SLOT(findText()));
+    makeButton(bar1, "Repl", SLOT(replaceText()));
 
     QHBox *bar2 = new QHBox(root);
     makeButton(bar2, "---", SLOT(insertRule()));
     makeButton(bar2, ">>", SLOT(indentLine()));
     makeButton(bar2, "<<", SLOT(outdentLine()));
+    makeButton(bar2, "UpLn", SLOT(moveLineUp()));
+    makeButton(bar2, "DnLn", SLOT(moveLineDown()));
     makeButton(bar2, "Date", SLOT(insertDate()));
+    makeButton(bar2, "Time", SLOT(insertTime()));
     makeButton(bar2, "Undo", SLOT(undoEdit()));
     makeButton(bar2, "Redo", SLOT(redoEdit()));
     makeButton(bar2, "Edit", SLOT(showEditor()));
     makeButton(bar2, "View", SLOT(showView()));
+
+    QHBox *bar3 = new QHBox(root);
+    makeButton(bar3, "Done", SLOT(todoToggleDone()));
+    makeButton(bar3, "A", SLOT(todoPriorityA()));
+    makeButton(bar3, "B", SLOT(todoPriorityB()));
+    makeButton(bar3, "C", SLOT(todoPriorityC()));
+    makeButton(bar3, "+Proj", SLOT(todoProject()));
+    makeButton(bar3, "@Ctx", SLOT(todoContext()));
+    makeButton(bar3, "Due", SLOT(todoDue()));
+    makeButton(bar3, "End", SLOT(moveDoneTasksToEnd()));
+    makeButton(bar3, "Clr", SLOT(clearDoneTasks()));
 
     stack->raiseWidget(browser);
 }
@@ -150,6 +174,7 @@ void MainWindow::openFile(const QString &path)
         FileUtil::writeUtf8Atomic(path, "");
     FileUtil::readUtf8(path, &text);
     editor->setText(text);
+    setCaption(QFileInfo(path).fileName());
     showEditor();
 }
 
@@ -209,13 +234,16 @@ void MainWindow::insertTask()
 
 void MainWindow::newFile()
 {
-    QString name;
-    QString path;
-    for (int i = 1; i < 1000; ++i) {
-        name = "note" + QString::number(i) + ".md";
-        path = currentDir + "/" + name;
-        if (!QFileInfo(path).exists())
-            break;
+    bool ok = false;
+    QString name = TextPrompt::getText("New file", "Name", "note.md", &ok, this);
+    if (!ok || name.isEmpty())
+        return;
+    if (!(name.right(3) == ".md" || name.right(4) == ".txt"))
+        name += ".md";
+    QString path = currentDir + "/" + name;
+    if (QFileInfo(path).exists()) {
+        QMessageBox::warning(this, "New file", "File exists.");
+        return;
     }
     FileUtil::writeUtf8Atomic(path, "# " + name + "\n\n");
     loadDirectory(currentDir);
@@ -236,6 +264,80 @@ void MainWindow::goUp()
     if (next.left(notesDir.length()) != notesDir)
         next = notesDir;
     loadDirectory(next);
+}
+
+QString MainWindow::currentSelectedPath() const
+{
+    QListViewItem *item = browser->currentItem();
+    if (!item)
+        return QString::null;
+    if (item->text(0) == "..")
+        return QString::null;
+    return currentDir + "/" + item->text(0);
+}
+
+void MainWindow::saveAsFile()
+{
+    if (currentFile.isEmpty())
+        return;
+    bool ok = false;
+    QString name = TextPrompt::getText("Save as", "Name", QFileInfo(currentFile).fileName(), &ok, this);
+    if (!ok || name.isEmpty())
+        return;
+    if (!(name.right(3) == ".md" || name.right(4) == ".txt"))
+        name += ".md";
+    QString path = currentDir + "/" + name;
+    if (QFileInfo(path).exists()) {
+        QMessageBox::warning(this, "Save as", "File exists.");
+        return;
+    }
+    currentFile = path;
+    saveFile();
+    loadDirectory(currentDir);
+    setCaption(name);
+}
+
+void MainWindow::renameFile()
+{
+    QString path = currentFile;
+    if (stack && stack->visibleWidget() == browser)
+        path = currentSelectedPath();
+    if (path.isEmpty())
+        return;
+    QFileInfo info(path);
+    bool ok = false;
+    QString name = TextPrompt::getText("Rename", "Name", info.fileName(), &ok, this);
+    if (!ok || name.isEmpty())
+        return;
+    QString next = info.dirPath(true) + "/" + name;
+    if (QFileInfo(next).exists()) {
+        QMessageBox::warning(this, "Rename", "File exists.");
+        return;
+    }
+    if (QDir().rename(path, next)) {
+        if (path == currentFile) {
+            currentFile = next;
+            setCaption(name);
+        }
+        loadDirectory(currentDir);
+    }
+}
+
+void MainWindow::deleteFile()
+{
+    QString path = currentFile;
+    if (stack && stack->visibleWidget() == browser)
+        path = currentSelectedPath();
+    if (path.isEmpty())
+        return;
+    int answer = QMessageBox::warning(this, "Delete", "Delete this file?", QMessageBox::Yes, QMessageBox::No);
+    if (answer != QMessageBox::Yes)
+        return;
+    QFile::remove(path);
+    if (path == currentFile)
+        currentFile = QString::null;
+    loadDirectory(currentDir);
+    stack->raiseWidget(browser);
 }
 
 QString MainWindow::selectedText() const
@@ -275,6 +377,17 @@ void MainWindow::setCurrentLineText(int lineNo, const QString &line)
 {
     editor->removeLine(lineNo);
     editor->insertLine(line, lineNo);
+}
+
+void MainWindow::replaceAllText(const QString &text, int cursorLine)
+{
+    editor->setText(text);
+    if (cursorLine < 0)
+        cursorLine = 0;
+    if (cursorLine >= editor->numLines())
+        cursorLine = editor->numLines() - 1;
+    editor->setCursorPosition(cursorLine, 0);
+    touchEditor();
 }
 
 void MainWindow::replaceCurrentLine(const QString &line)
@@ -418,6 +531,12 @@ void MainWindow::insertDate()
     touchEditor();
 }
 
+void MainWindow::insertTime()
+{
+    replaceSelectionOrInsert(QTime::currentTime().toString());
+    touchEditor();
+}
+
 void MainWindow::undoEdit()
 {
     editor->undo();
@@ -428,4 +547,186 @@ void MainWindow::redoEdit()
 {
     editor->redo();
     touchEditor();
+}
+
+void MainWindow::findText()
+{
+    bool ok = false;
+    QString needle = TextPrompt::getText("Find", "Text", "", &ok, this);
+    if (!ok || needle.isEmpty())
+        return;
+    int row, col;
+    editor->getCursorPosition(&row, &col);
+    for (int i = row; i < editor->numLines(); ++i) {
+        QString line = editor->textLine(i);
+        int from = (i == row) ? col + 1 : 0;
+        int p = line.find(needle, from);
+        if (p >= 0) {
+            editor->setCursorPosition(i, p);
+            editor->setSelection(i, p, i, p + needle.length());
+            touchEditor();
+            return;
+        }
+    }
+    QMessageBox::information(this, "Find", "Not found.");
+}
+
+void MainWindow::replaceText()
+{
+    bool ok = false;
+    QString needle = TextPrompt::getText("Replace", "Find", "", &ok, this);
+    if (!ok || needle.isEmpty())
+        return;
+    QString repl = TextPrompt::getText("Replace", "With", "", &ok, this);
+    if (!ok)
+        return;
+    QString text = editor->text();
+    int p = 0;
+    int count = 0;
+    while ((p = text.find(needle, p)) >= 0) {
+        text.replace(p, needle.length(), repl);
+        p += repl.length();
+        ++count;
+    }
+    editor->setText(text);
+    statusBar()->message(QString::number(count) + " replaced", 1500);
+    touchEditor();
+}
+
+void MainWindow::moveLineUp()
+{
+    int row, col;
+    editor->getCursorPosition(&row, &col);
+    if (row <= 0)
+        return;
+    QString prev = editor->textLine(row - 1);
+    QString cur = editor->textLine(row);
+    setCurrentLineText(row - 1, cur);
+    setCurrentLineText(row, prev);
+    editor->setCursorPosition(row - 1, col);
+    touchEditor();
+}
+
+void MainWindow::moveLineDown()
+{
+    int row, col;
+    editor->getCursorPosition(&row, &col);
+    if (row >= editor->numLines() - 1)
+        return;
+    QString cur = editor->textLine(row);
+    QString next = editor->textLine(row + 1);
+    setCurrentLineText(row, next);
+    setCurrentLineText(row + 1, cur);
+    editor->setCursorPosition(row + 1, col);
+    touchEditor();
+}
+
+bool MainWindow::isTodoFile() const
+{
+    return QFileInfo(currentFile).fileName() == "todo.txt";
+}
+
+void MainWindow::todoToggleDone()
+{
+    int row, col;
+    editor->getCursorPosition(&row, &col);
+    QString line = editor->textLine(row);
+    if (isTodoFile())
+        line = TodoTxt::toggleDone(line, QDate::currentDate().toString());
+    else
+        toggleTaskCurrent();
+    if (isTodoFile())
+        replaceCurrentLine(line);
+}
+
+void MainWindow::setTodoPriority(const QString &priority)
+{
+    int row, col;
+    editor->getCursorPosition(&row, &col);
+    QString line = editor->textLine(row).stripWhiteSpace();
+    if (line.length() >= 4 && line[0] == '(' && line[2] == ')' && line[1] >= 'A' && line[1] <= 'Z')
+        line = line.mid(4);
+    if (!priority.isEmpty())
+        line = "(" + priority + ") " + line;
+    replaceCurrentLine(line);
+}
+
+void MainWindow::todoPriorityA()
+{
+    setTodoPriority("A");
+}
+
+void MainWindow::todoPriorityB()
+{
+    setTodoPriority("B");
+}
+
+void MainWindow::todoPriorityC()
+{
+    setTodoPriority("C");
+}
+
+void MainWindow::appendToCurrentLine(const QString &text)
+{
+    int row, col;
+    editor->getCursorPosition(&row, &col);
+    QString line = editor->textLine(row);
+    if (!line.isEmpty() && line.right(1) != " ")
+        line += " ";
+    line += text;
+    replaceCurrentLine(line);
+}
+
+void MainWindow::todoProject()
+{
+    bool ok = false;
+    QString value = TextPrompt::getText("Project", "Name", "", &ok, this);
+    if (ok && !value.isEmpty())
+        appendToCurrentLine("+" + value);
+}
+
+void MainWindow::todoContext()
+{
+    bool ok = false;
+    QString value = TextPrompt::getText("Context", "Name", "", &ok, this);
+    if (ok && !value.isEmpty())
+        appendToCurrentLine("@" + value);
+}
+
+void MainWindow::todoDue()
+{
+    bool ok = false;
+    QString value = TextPrompt::getText("Due", "YYYY-MM-DD", QDate::currentDate().toString(), &ok, this);
+    if (ok && !value.isEmpty())
+        appendToCurrentLine("due:" + value);
+}
+
+void MainWindow::moveDoneTasksToEnd()
+{
+    QStringList lines = QStringList::split('\n', editor->text(), true);
+    QStringList open;
+    QStringList done;
+    for (uint i = 0; i < lines.count(); ++i) {
+        QString s = lines[i].stripWhiteSpace();
+        if (s.left(2) == "x " || s.find("[x]") >= 0 || s.find("[X]") >= 0)
+            done.append(lines[i]);
+        else
+            open.append(lines[i]);
+    }
+    replaceAllText(open.join("\n") + "\n" + done.join("\n"), 0);
+}
+
+void MainWindow::clearDoneTasks()
+{
+    int answer = QMessageBox::warning(this, "Clear done", "Remove done tasks?", QMessageBox::Yes, QMessageBox::No);
+    if (answer != QMessageBox::Yes)
+        return;
+    QStringList lines = QStringList::split('\n', editor->text(), true);
+    QStringList kept;
+    for (uint i = 0; i < lines.count(); ++i) {
+        QString s = lines[i].stripWhiteSpace();
+        if (!(s.left(2) == "x " || s.find("[x]") >= 0 || s.find("[X]") >= 0))
+            kept.append(lines[i]);
+    }
+    replaceAllText(kept.join("\n"), 0);
 }

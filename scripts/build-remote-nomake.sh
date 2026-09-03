@@ -23,6 +23,7 @@ for f in \
   src/main.cpp \
   src/MainWindow.cpp \
   src/MdView.cpp \
+  src/TextPrompt.cpp \
   src/MdParser.cpp \
   src/TodoTxt.cpp \
   src/FileUtil.cpp \
@@ -34,7 +35,7 @@ do
 done
 
 "$CXX" $LFLAGS -o DIST/zaurusmd \
-  src/main.o src/MainWindow.o src/MdView.o src/MdParser.o \
+  src/main.o src/MainWindow.o src/MdView.o src/TextPrompt.o src/MdParser.o \
   src/TodoTxt.o src/FileUtil.o moc_MainWindow.o moc_MdView.o \
   $LIBS
 
