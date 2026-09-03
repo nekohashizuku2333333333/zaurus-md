@@ -13,9 +13,12 @@
 #include <qlistview.h>
 #include <qmessagebox.h>
 #include <qmultilineedit.h>
+#include <qpalette.h>
 #include <qpushbutton.h>
+#include <qscrollview.h>
 #include <qstatusbar.h>
 #include <qdatetime.h>
+#include <qtimer.h>
 #include <qtoolbar.h>
 #include <qtoolbutton.h>
 #include <qvbox.h>
@@ -30,7 +33,11 @@ MainWindow::MainWindow(QWidget *parent, const char *name)
       stack(0),
       editor(0),
       view(0),
-      modeButton(0)
+      modeButton(0),
+      autosaveTimer(0),
+      darkTheme(false),
+      hideDone(false),
+      fontSize(12)
 {
     FileUtil::ensureDir(notesDir);
     buildUi();
@@ -67,6 +74,8 @@ void MainWindow::buildUi()
     connect(browser, SIGNAL(doubleClicked(QListViewItem *)), this, SLOT(openSelected(QListViewItem *)));
 
     editor = new MdEdit(stack);
+    editor->setUndoEnabled(true);
+    connect(editor, SIGNAL(textChanged()), this, SLOT(autosaveTick()));
     view = new MdView(stack);
     connect(view, SIGNAL(toggleTask(int)), this, SLOT(toggleTask(int)));
 
@@ -74,42 +83,57 @@ void MainWindow::buildUi()
     stack->addWidget(editor, 1);
     stack->addWidget(view, 2);
 
-    QHBox *bar1 = new QHBox(root);
-    makeButton(bar1, "B", SLOT(wrapBold()));
-    makeButton(bar1, "I", SLOT(wrapItalic()));
-    makeButton(bar1, "`", SLOT(wrapCode()));
-    makeButton(bar1, "H", SLOT(cycleHeading()));
-    makeButton(bar1, "-", SLOT(toggleBullet()));
-    makeButton(bar1, "1.", SLOT(toggleNumber()));
-    makeButton(bar1, "[ ]", SLOT(toggleTaskCurrent()));
-    makeButton(bar1, ">", SLOT(quoteLine()));
-    makeButton(bar1, "Link", SLOT(insertLink()));
-    makeButton(bar1, "Find", SLOT(findText()));
-    makeButton(bar1, "Repl", SLOT(replaceText()));
+    QScrollView *tools = new QScrollView(root);
+    tools->setVScrollBarMode(QScrollView::AlwaysOff);
+    tools->setHScrollBarMode(QScrollView::Auto);
+    QHBox *bar = new QHBox(tools->viewport());
+    tools->addChild(bar);
+    makeButton(bar, "B", SLOT(wrapBold()));
+    makeButton(bar, "I", SLOT(wrapItalic()));
+    makeButton(bar, "`", SLOT(wrapCode()));
+    makeButton(bar, "H", SLOT(cycleHeading()));
+    makeButton(bar, "-", SLOT(toggleBullet()));
+    makeButton(bar, "1.", SLOT(toggleNumber()));
+    makeButton(bar, "[ ]", SLOT(toggleTaskCurrent()));
+    makeButton(bar, ">", SLOT(quoteLine()));
+    makeButton(bar, "Link", SLOT(insertLink()));
+    makeButton(bar, "Find", SLOT(findText()));
+    makeButton(bar, "Next", SLOT(findNext()));
+    makeButton(bar, "R1", SLOT(replaceOne()));
+    makeButton(bar, "All", SLOT(replaceText()));
+    makeButton(bar, "---", SLOT(insertRule()));
+    makeButton(bar, ">>", SLOT(indentLine()));
+    makeButton(bar, "<<", SLOT(outdentLine()));
+    makeButton(bar, "Up", SLOT(moveLineUp()));
+    makeButton(bar, "Dn", SLOT(moveLineDown()));
+    makeButton(bar, "Date", SLOT(insertDate()));
+    makeButton(bar, "Time", SLOT(insertTime()));
+    makeButton(bar, "Undo", SLOT(undoEdit()));
+    makeButton(bar, "Redo", SLOT(redoEdit()));
+    makeButton(bar, "Done", SLOT(todoToggleDone()));
+    makeButton(bar, "A", SLOT(todoPriorityA()));
+    makeButton(bar, "B", SLOT(todoPriorityB()));
+    makeButton(bar, "C", SLOT(todoPriorityC()));
+    makeButton(bar, "+", SLOT(todoProject()));
+    makeButton(bar, "@", SLOT(todoContext()));
+    makeButton(bar, "Due", SLOT(todoDue()));
+    makeButton(bar, "Sort", SLOT(todoSortPriority()));
+    makeButton(bar, "Hide", SLOT(toggleHideDone()));
+    makeButton(bar, "End", SLOT(moveDoneTasksToEnd()));
+    makeButton(bar, "Clr", SLOT(clearDoneTasks()));
+    makeButton(bar, "A+", SLOT(fontBigger()));
+    makeButton(bar, "A-", SLOT(fontSmaller()));
+    makeButton(bar, "Theme", SLOT(toggleTheme()));
+    makeButton(bar, "Edit", SLOT(showEditor()));
+    makeButton(bar, "View", SLOT(showView()));
+    bar->resize(1100, 28);
+    tools->resizeContents(1100, 28);
+    tools->setFixedHeight(44);
 
-    QHBox *bar2 = new QHBox(root);
-    makeButton(bar2, "---", SLOT(insertRule()));
-    makeButton(bar2, ">>", SLOT(indentLine()));
-    makeButton(bar2, "<<", SLOT(outdentLine()));
-    makeButton(bar2, "UpLn", SLOT(moveLineUp()));
-    makeButton(bar2, "DnLn", SLOT(moveLineDown()));
-    makeButton(bar2, "Date", SLOT(insertDate()));
-    makeButton(bar2, "Time", SLOT(insertTime()));
-    makeButton(bar2, "Undo", SLOT(undoEdit()));
-    makeButton(bar2, "Redo", SLOT(redoEdit()));
-    makeButton(bar2, "Edit", SLOT(showEditor()));
-    makeButton(bar2, "View", SLOT(showView()));
-
-    QHBox *bar3 = new QHBox(root);
-    makeButton(bar3, "Done", SLOT(todoToggleDone()));
-    makeButton(bar3, "A", SLOT(todoPriorityA()));
-    makeButton(bar3, "B", SLOT(todoPriorityB()));
-    makeButton(bar3, "C", SLOT(todoPriorityC()));
-    makeButton(bar3, "+Proj", SLOT(todoProject()));
-    makeButton(bar3, "@Ctx", SLOT(todoContext()));
-    makeButton(bar3, "Due", SLOT(todoDue()));
-    makeButton(bar3, "End", SLOT(moveDoneTasksToEnd()));
-    makeButton(bar3, "Clr", SLOT(clearDoneTasks()));
+    autosaveTimer = new QTimer(this);
+    connect(autosaveTimer, SIGNAL(timeout()), this, SLOT(saveFile()));
+    applyFontSize();
+    applyTheme();
 
     stack->raiseWidget(browser);
 }
@@ -174,6 +198,7 @@ void MainWindow::openFile(const QString &path)
         FileUtil::writeUtf8Atomic(path, "");
     FileUtil::readUtf8(path, &text);
     editor->setText(text);
+    editor->setEdited(false);
     setCaption(QFileInfo(path).fileName());
     showEditor();
 }
@@ -206,14 +231,20 @@ void MainWindow::showView()
 void MainWindow::refreshView()
 {
     QValueList<MdBlockMap> map;
-    view->setText(MdParser::toRichText(editor->text(), &map));
+    QString text = editor->text();
+    if (hideDone)
+        text = withoutDoneLines(text);
+    view->setText(MdParser::toRichText(text, &map));
 }
 
 void MainWindow::saveFile()
 {
     if (currentFile.isEmpty())
         return;
+    if (autosaveTimer)
+        autosaveTimer->stop();
     FileUtil::writeUtf8Atomic(currentFile, editor->text());
+    editor->setEdited(false);
     statusBar()->message("Saved", 1000);
 }
 
@@ -222,6 +253,7 @@ void MainWindow::toggleTask(int lineNumber)
     QString text = editor->text();
     if (MdParser::toggleTaskLine(&text, lineNumber)) {
         editor->setText(text);
+        editor->setEdited(true);
         saveFile();
         refreshView();
     }
@@ -230,6 +262,7 @@ void MainWindow::toggleTask(int lineNumber)
 void MainWindow::insertTask()
 {
     editor->insert("- [ ] ");
+    scheduleAutosave();
 }
 
 void MainWindow::newFile()
@@ -357,6 +390,7 @@ void MainWindow::replaceSelectionOrInsert(const QString &text)
         return;
     }
     editor->insert(text);
+    scheduleAutosave();
 }
 
 void MainWindow::wrapSelection(const QString &before, const QString &after)
@@ -371,6 +405,7 @@ void MainWindow::wrapSelection(const QString &before, const QString &after)
         replaceSelectionOrInsert(before + sel + after);
     }
     touchEditor();
+    scheduleAutosave();
 }
 
 void MainWindow::setCurrentLineText(int lineNo, const QString &line)
@@ -388,6 +423,7 @@ void MainWindow::replaceAllText(const QString &text, int cursorLine)
         cursorLine = editor->numLines() - 1;
     editor->setCursorPosition(cursorLine, 0);
     touchEditor();
+    scheduleAutosave();
 }
 
 void MainWindow::replaceCurrentLine(const QString &line)
@@ -423,6 +459,39 @@ void MainWindow::applyLinePrefix(const QString &prefix, bool numbered)
 void MainWindow::touchEditor()
 {
     editor->setFocus();
+}
+
+void MainWindow::scheduleAutosave()
+{
+    if (autosaveTimer && !currentFile.isEmpty())
+        autosaveTimer->start(2500, true);
+}
+
+void MainWindow::autosaveTick()
+{
+    scheduleAutosave();
+}
+
+void MainWindow::applyFontSize()
+{
+    QFont f = editor->font();
+    f.setPointSize(fontSize);
+    editor->setFont(f);
+    view->setFont(f);
+}
+
+void MainWindow::applyTheme()
+{
+    if (!darkTheme) {
+        editor->unsetPalette();
+        view->unsetPalette();
+        browser->unsetPalette();
+        return;
+    }
+    QPalette pal(QColor(238, 238, 238), QColor(32, 32, 32));
+    editor->setPalette(pal);
+    view->setPalette(pal);
+    browser->setPalette(pal);
 }
 
 void MainWindow::wrapBold()
@@ -552,9 +621,20 @@ void MainWindow::redoEdit()
 void MainWindow::findText()
 {
     bool ok = false;
-    QString needle = TextPrompt::getText("Find", "Text", "", &ok, this);
+    QString needle = TextPrompt::getText("Find", "Text", lastFind, &ok, this);
     if (!ok || needle.isEmpty())
         return;
+    lastFind = needle;
+    findNext();
+}
+
+void MainWindow::findNext()
+{
+    QString needle = lastFind;
+    if (needle.isEmpty()) {
+        findText();
+        return;
+    }
     int row, col;
     editor->getCursorPosition(&row, &col);
     for (int i = row; i < editor->numLines(); ++i) {
@@ -571,12 +651,42 @@ void MainWindow::findText()
     QMessageBox::information(this, "Find", "Not found.");
 }
 
+void MainWindow::replaceOne()
+{
+    bool ok = false;
+    if (lastFind.isEmpty()) {
+        lastFind = TextPrompt::getText("Replace one", "Find", "", &ok, this);
+        if (!ok || lastFind.isEmpty())
+            return;
+    }
+    QString repl = TextPrompt::getText("Replace one", "With", "", &ok, this);
+    if (!ok)
+        return;
+    int row, col;
+    editor->getCursorPosition(&row, &col);
+    QString line = editor->textLine(row);
+    int p = line.find(lastFind, col);
+    if (p < 0) {
+        findNext();
+        editor->getCursorPosition(&row, &col);
+        line = editor->textLine(row);
+        p = line.find(lastFind, col);
+    }
+    if (p >= 0) {
+        line.replace(p, lastFind.length(), repl);
+        setCurrentLineText(row, line);
+        editor->setCursorPosition(row, p + repl.length());
+        scheduleAutosave();
+    }
+}
+
 void MainWindow::replaceText()
 {
     bool ok = false;
     QString needle = TextPrompt::getText("Replace", "Find", "", &ok, this);
     if (!ok || needle.isEmpty())
         return;
+    lastFind = needle;
     QString repl = TextPrompt::getText("Replace", "With", "", &ok, this);
     if (!ok)
         return;
@@ -589,6 +699,7 @@ void MainWindow::replaceText()
         ++count;
     }
     editor->setText(text);
+    scheduleAutosave();
     statusBar()->message(QString::number(count) + " replaced", 1500);
     touchEditor();
 }
@@ -605,6 +716,7 @@ void MainWindow::moveLineUp()
     setCurrentLineText(row, prev);
     editor->setCursorPosition(row - 1, col);
     touchEditor();
+    scheduleAutosave();
 }
 
 void MainWindow::moveLineDown()
@@ -619,6 +731,7 @@ void MainWindow::moveLineDown()
     setCurrentLineText(row + 1, cur);
     editor->setCursorPosition(row + 1, col);
     touchEditor();
+    scheduleAutosave();
 }
 
 bool MainWindow::isTodoFile() const
@@ -637,6 +750,7 @@ void MainWindow::todoToggleDone()
         toggleTaskCurrent();
     if (isTodoFile())
         replaceCurrentLine(line);
+    scheduleAutosave();
 }
 
 void MainWindow::setTodoPriority(const QString &priority)
@@ -649,6 +763,7 @@ void MainWindow::setTodoPriority(const QString &priority)
     if (!priority.isEmpty())
         line = "(" + priority + ") " + line;
     replaceCurrentLine(line);
+    scheduleAutosave();
 }
 
 void MainWindow::todoPriorityA()
@@ -675,6 +790,77 @@ void MainWindow::appendToCurrentLine(const QString &text)
         line += " ";
     line += text;
     replaceCurrentLine(line);
+}
+
+QString MainWindow::stripTodoPriority(const QString &line) const
+{
+    QString s = line.stripWhiteSpace();
+    if (s.length() >= 4 && s[0] == '(' && s[2] == ')' && s[1] >= 'A' && s[1] <= 'Z')
+        return s.mid(4);
+    return s;
+}
+
+int MainWindow::todoPriorityRank(const QString &line) const
+{
+    QString s = line.stripWhiteSpace();
+    if (s.length() >= 3 && s[0] == '(' && s[2] == ')' && s[1] >= 'A' && s[1] <= 'Z')
+        return s[1].latin1() - 'A';
+    return 99;
+}
+
+void MainWindow::todoSortPriority()
+{
+    QStringList lines = QStringList::split('\n', editor->text(), true);
+    for (uint i = 0; i < lines.count(); ++i) {
+        for (uint j = i + 1; j < lines.count(); ++j) {
+            if (todoPriorityRank(lines[j]) < todoPriorityRank(lines[i])) {
+                QString tmp = lines[i];
+                lines[i] = lines[j];
+                lines[j] = tmp;
+            }
+        }
+    }
+    replaceAllText(lines.join("\n"), 0);
+    scheduleAutosave();
+}
+
+QString MainWindow::withoutDoneLines(const QString &text) const
+{
+    QStringList lines = QStringList::split('\n', text, true);
+    QStringList kept;
+    for (uint i = 0; i < lines.count(); ++i) {
+        QString s = lines[i].stripWhiteSpace();
+        if (!(s.left(2) == "x " || s.find("[x]") >= 0 || s.find("[X]") >= 0))
+            kept.append(lines[i]);
+    }
+    return kept.join("\n");
+}
+
+void MainWindow::toggleHideDone()
+{
+    hideDone = !hideDone;
+    refreshView();
+    statusBar()->message(hideDone ? "Done hidden" : "Done shown", 1200);
+}
+
+void MainWindow::fontBigger()
+{
+    if (fontSize < 22)
+        ++fontSize;
+    applyFontSize();
+}
+
+void MainWindow::fontSmaller()
+{
+    if (fontSize > 8)
+        --fontSize;
+    applyFontSize();
+}
+
+void MainWindow::toggleTheme()
+{
+    darkTheme = !darkTheme;
+    applyTheme();
 }
 
 void MainWindow::todoProject()
@@ -714,6 +900,7 @@ void MainWindow::moveDoneTasksToEnd()
             open.append(lines[i]);
     }
     replaceAllText(open.join("\n") + "\n" + done.join("\n"), 0);
+    scheduleAutosave();
 }
 
 void MainWindow::clearDoneTasks()
@@ -729,4 +916,5 @@ void MainWindow::clearDoneTasks()
             kept.append(lines[i]);
     }
     replaceAllText(kept.join("\n"), 0);
+    scheduleAutosave();
 }

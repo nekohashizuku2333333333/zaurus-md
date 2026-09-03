@@ -11,6 +11,7 @@ class QPushButton;
 class QWidgetStack;
 class MdView;
 class QButton;
+class QTimer;
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -48,6 +49,8 @@ private slots:
     void deleteFile();
     void findText();
     void replaceText();
+    void replaceOne();
+    void findNext();
     void moveLineUp();
     void moveLineDown();
     void moveDoneTasksToEnd();
@@ -59,6 +62,12 @@ private slots:
     void todoProject();
     void todoContext();
     void todoDue();
+    void todoSortPriority();
+    void toggleHideDone();
+    void fontBigger();
+    void fontSmaller();
+    void toggleTheme();
+    void autosaveTick();
 
 private:
     void buildUi();
@@ -77,6 +86,12 @@ private:
     bool isTodoFile() const;
     void setTodoPriority(const QString &priority);
     void appendToCurrentLine(const QString &text);
+    void applyFontSize();
+    void applyTheme();
+    void scheduleAutosave();
+    QString stripTodoPriority(const QString &line) const;
+    int todoPriorityRank(const QString &line) const;
+    QString withoutDoneLines(const QString &text) const;
     void touchEditor();
 
     QString notesDir;
@@ -87,6 +102,11 @@ private:
     MdEdit *editor;
     MdView *view;
     QPushButton *modeButton;
+    QTimer *autosaveTimer;
+    QString lastFind;
+    bool darkTheme;
+    bool hideDone;
+    int fontSize;
 };
 
 #endif
