@@ -18,6 +18,10 @@ class MainWindow : public QMainWindow {
     Q_OBJECT
 public:
     MainWindow(QWidget *parent = 0, const char *name = 0);
+    void openInitialFile(const QString &path);
+
+protected:
+    void closeEvent(QCloseEvent *event);
 
 private slots:
     void openSelected(QListViewItem *item);

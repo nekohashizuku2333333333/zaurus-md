@@ -12,6 +12,7 @@
 #include <qfileinfo.h>
 #include <qapplication.h>
 #include <qclipboard.h>
+#include <qevent.h>
 #include <qlistview.h>
 #include <qmessagebox.h>
 #include <qmultilineedit.h>
@@ -70,8 +71,8 @@ void MainWindow::buildUi()
     docBar = new QHBox(root);
     docBar->setFixedHeight(32);
     makeTopButton(docBar, "<", SLOT(showBrowser()));
-    modeButton = makeTopButton(docBar, "V", SLOT(showView()));
-    makeTopButton(docBar, "S", SLOT(saveFile()));
+    modeButton = makeTopButton(docBar, "View", SLOT(showView()));
+    makeTopButton(docBar, "Save", SLOT(saveFile()));
 
     stack = new QWidgetStack(root);
     browser = new QListView(stack);
@@ -124,6 +125,35 @@ QPushButton *MainWindow::makeButton(QWidget *parent, const char *text, const cha
     button->move(index * 39, 3);
     connect(button, SIGNAL(clicked()), this, slot);
     return button;
+}
+
+void MainWindow::openInitialFile(const QString &path)
+{
+    if (path.isEmpty())
+        return;
+    QFileInfo info(path);
+    if (info.isDir()) {
+        QString abs = info.absFilePath();
+        if (abs.left(notesDir.length()) == notesDir)
+            loadDirectory(abs);
+        return;
+    }
+    if (info.fileName().right(3) == ".md" || info.fileName().right(4) == ".txt")
+        openFile(info.absFilePath());
+}
+
+void MainWindow::closeEvent(QCloseEvent *event)
+{
+    if (!currentFile.isEmpty() && editor->edited()) {
+        int answer = QMessageBox::warning(this, "Save", "Save changes?", QMessageBox::Yes, QMessageBox::No, QMessageBox::Cancel);
+        if (answer == QMessageBox::Cancel) {
+            event->ignore();
+            return;
+        }
+        if (answer == QMessageBox::Yes)
+            saveFile();
+    }
+    event->accept();
 }
 
 void MainWindow::rebuildToolBar()
@@ -226,7 +256,7 @@ QPushButton *MainWindow::makeTopButton(QWidget *parent, const char *text, const 
 {
     QPushButton *button = new QPushButton(text, parent);
     button->setFont(QFont("song", 10));
-    button->setFixedSize(40, 30);
+    button->setFixedSize(70, 30);
     connect(button, SIGNAL(clicked()), this, slot);
     return button;
 }
@@ -315,7 +345,7 @@ void MainWindow::showEditor()
     fileBar->hide();
     docBar->show();
     stack->raiseWidget(editor);
-    modeButton->setText("V");
+    modeButton->setText("View");
     disconnect(modeButton, SIGNAL(clicked()), this, SLOT(showEditor()));
     connect(modeButton, SIGNAL(clicked()), this, SLOT(showView()));
     touchEditor();
@@ -328,7 +358,7 @@ void MainWindow::showView()
     fileBar->hide();
     docBar->show();
     stack->raiseWidget(view);
-    modeButton->setText("E");
+    modeButton->setText("Edit");
     disconnect(modeButton, SIGNAL(clicked()), this, SLOT(showView()));
     connect(modeButton, SIGNAL(clicked()), this, SLOT(showEditor()));
 }
