@@ -265,6 +265,8 @@ void MainWindow::saveFile()
 
 void MainWindow::toggleTask(int lineNumber)
 {
+    if (lineNumber >= 0 && lineNumber < (int)previewLineMap.count())
+        lineNumber = previewLineMap[lineNumber];
     QString text = editor->text();
     if (MdParser::toggleTaskLine(&text, lineNumber)) {
         editor->setText(text);
@@ -1107,8 +1109,9 @@ bool MainWindow::lineMatchesTodoFilter(const QString &line) const
     return line.find(todoFilter) >= 0;
 }
 
-QString MainWindow::filteredPreviewText(const QString &text) const
+QString MainWindow::filteredPreviewText(const QString &text)
 {
+    previewLineMap.clear();
     QStringList lines = QStringList::split('\n', text, true);
     QStringList kept;
     for (uint i = 0; i < lines.count(); ++i) {
@@ -1118,6 +1121,7 @@ QString MainWindow::filteredPreviewText(const QString &text) const
         if (!lineMatchesTodoFilter(lines[i]))
             continue;
         kept.append(lines[i]);
+        previewLineMap.append((int)i);
     }
     return kept.join("\n");
 }

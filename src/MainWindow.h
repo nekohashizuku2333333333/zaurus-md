@@ -3,6 +3,7 @@
 
 #include <qmainwindow.h>
 #include <qstring.h>
+#include <qvaluelist.h>
 
 class QListView;
 class QListViewItem;
@@ -106,7 +107,7 @@ private:
     QString stripTodoPriority(const QString &line) const;
     int todoPriorityRank(const QString &line) const;
     QString withoutDoneLines(const QString &text) const;
-    QString filteredPreviewText(const QString &text) const;
+    QString filteredPreviewText(const QString &text);
     bool lineMatchesTodoFilter(const QString &line) const;
     void touchEditor();
 
@@ -121,6 +122,7 @@ private:
     QTimer *autosaveTimer;
     QString lastFind;
     QString todoFilter;
+    QValueList<int> previewLineMap;
     bool darkTheme;
     bool hideDone;
     int fontSize;
