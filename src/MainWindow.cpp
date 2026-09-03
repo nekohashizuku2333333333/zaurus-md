@@ -60,7 +60,7 @@ void MainWindow::buildUi()
     QVBox *root = new QVBox(this);
     setCentralWidget(root);
 
-    fileBar = new QHBox(root);
+    fileBar = new QWidget(root);
     fileBar->setFixedHeight(32);
     makeTopButton(fileBar, "^", SLOT(goUp()));
     makeTopButton(fileBar, "+F", SLOT(newFile()));
@@ -68,7 +68,7 @@ void MainWindow::buildUi()
     makeTopButton(fileBar, "Ren", SLOT(renameFile()));
     makeTopButton(fileBar, "Del", SLOT(deleteFile()));
 
-    docBar = new QHBox(root);
+    docBar = new QWidget(root);
     docBar->setFixedHeight(32);
     makeTopButton(docBar, "<", SLOT(showBrowser()));
     modeButton = makeTopButton(docBar, "View", SLOT(showView()));
@@ -257,6 +257,10 @@ QPushButton *MainWindow::makeTopButton(QWidget *parent, const char *text, const 
     QPushButton *button = new QPushButton(text, parent);
     button->setFont(QFont("song", 10));
     button->setFixedSize(70, 30);
+    QObjectList *siblings = parent->queryList("QPushButton");
+    int index = siblings ? siblings->count() - 1 : 0;
+    delete siblings;
+    button->move(index * 71, 1);
     connect(button, SIGNAL(clicked()), this, slot);
     return button;
 }
