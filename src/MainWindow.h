@@ -22,6 +22,7 @@ public:
 
 protected:
     void closeEvent(QCloseEvent *event);
+    void resizeEvent(QResizeEvent *event);
 
 private slots:
     void openSelected(QListViewItem *item);
@@ -89,13 +90,25 @@ private slots:
     void autosaveTick();
     void smartNewLine();
     void nextToolPage();
+    void tool0();
+    void tool1();
+    void tool2();
+    void tool3();
+    void tool4();
+    void tool5();
+    void tool6();
+    void tool7();
+    void tool8();
+    void tool9();
 
 private:
     void buildUi();
     QPushButton *makeButton(QWidget *parent, const char *text, const char *slot);
     QPushButton *makeTopButton(QWidget *parent, const char *text, const char *slot);
     void rebuildToolBar();
-    void setToolButton(int index, const char *text, const char *slot);
+    void setToolLabel(int index, const char *text);
+    void runTool(int index);
+    void layoutToolButtons();
     void updateCaption();
     void loadDirectory(const QString &path);
     void openFile(const QString &path);

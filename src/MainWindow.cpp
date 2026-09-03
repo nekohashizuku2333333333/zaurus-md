@@ -98,9 +98,18 @@ void MainWindow::buildUi()
     for (int i = 0; i < 10; ++i) {
         toolButtons[i] = new QPushButton("", toolBar);
         toolButtons[i]->setFont(QFont("song", 10));
-        toolButtons[i]->setFixedSize(63, 24);
-        toolButtons[i]->move(i * 64, 3);
     }
+    connect(toolButtons[0], SIGNAL(clicked()), this, SLOT(tool0()));
+    connect(toolButtons[1], SIGNAL(clicked()), this, SLOT(tool1()));
+    connect(toolButtons[2], SIGNAL(clicked()), this, SLOT(tool2()));
+    connect(toolButtons[3], SIGNAL(clicked()), this, SLOT(tool3()));
+    connect(toolButtons[4], SIGNAL(clicked()), this, SLOT(tool4()));
+    connect(toolButtons[5], SIGNAL(clicked()), this, SLOT(tool5()));
+    connect(toolButtons[6], SIGNAL(clicked()), this, SLOT(tool6()));
+    connect(toolButtons[7], SIGNAL(clicked()), this, SLOT(tool7()));
+    connect(toolButtons[8], SIGNAL(clicked()), this, SLOT(tool8()));
+    connect(toolButtons[9], SIGNAL(clicked()), this, SLOT(tool9()));
+    layoutToolButtons();
     rebuildToolBar();
 
     autosaveTimer = new QTimer(this);
@@ -142,6 +151,28 @@ void MainWindow::openInitialFile(const QString &path)
         openFile(info.absFilePath());
 }
 
+void MainWindow::resizeEvent(QResizeEvent *event)
+{
+    QMainWindow::resizeEvent(event);
+    layoutToolButtons();
+}
+
+void MainWindow::layoutToolButtons()
+{
+    int w = width();
+    if (w < 240)
+        w = 240;
+    int buttonW = w / 10;
+    if (buttonW < 32)
+        buttonW = 32;
+    for (int i = 0; i < 10; ++i) {
+        if (!toolButtons[i])
+            continue;
+        toolButtons[i]->setFixedSize(buttonW - 1, 24);
+        toolButtons[i]->move(i * buttonW, 3);
+    }
+}
+
 void MainWindow::closeEvent(QCloseEvent *event)
 {
     if (!currentFile.isEmpty() && editor->edited()) {
@@ -159,79 +190,77 @@ void MainWindow::closeEvent(QCloseEvent *event)
 void MainWindow::rebuildToolBar()
 {
     if (toolPage == 0) {
-        setToolButton(0, "B", SLOT(wrapBold()));
-        setToolButton(1, "I", SLOT(wrapItalic()));
-        setToolButton(2, "`", SLOT(wrapCode()));
-        setToolButton(3, "H", SLOT(cycleHeading()));
-        setToolButton(4, "-", SLOT(toggleBullet()));
-        setToolButton(5, "1.", SLOT(toggleNumber()));
-        setToolButton(6, "[ ]", SLOT(toggleTaskCurrent()));
-        setToolButton(7, ">", SLOT(quoteLine()));
-        setToolButton(8, "---", SLOT(insertRule()));
+        setToolLabel(0, "B");
+        setToolLabel(1, "I");
+        setToolLabel(2, "`");
+        setToolLabel(3, "H");
+        setToolLabel(4, "-");
+        setToolLabel(5, "1.");
+        setToolLabel(6, "[ ]");
+        setToolLabel(7, ">");
+        setToolLabel(8, "---");
     } else if (toolPage == 1) {
-        setToolButton(0, "Link", SLOT(insertLink()));
-        setToolButton(1, "Img", SLOT(insertImage()));
-        setToolButton(2, "Tbl", SLOT(insertTable()));
-        setToolButton(3, "Code", SLOT(insertCodeBlock()));
-        setToolButton(4, "Date", SLOT(insertDate()));
-        setToolButton(5, "Time", SLOT(insertTime()));
-        setToolButton(6, "A+", SLOT(fontBigger()));
-        setToolButton(7, "A-", SLOT(fontSmaller()));
-        setToolButton(8, "Theme", SLOT(toggleTheme()));
+        setToolLabel(0, "Link");
+        setToolLabel(1, "Img");
+        setToolLabel(2, "Tbl");
+        setToolLabel(3, "Code");
+        setToolLabel(4, "Date");
+        setToolLabel(5, "Time");
+        setToolLabel(6, "A+");
+        setToolLabel(7, "A-");
+        setToolLabel(8, "Theme");
     } else if (toolPage == 2) {
-        setToolButton(0, "Find", SLOT(findText()));
-        setToolButton(1, "Next", SLOT(findNext()));
-        setToolButton(2, "R1", SLOT(replaceOne()));
-        setToolButton(3, "All", SLOT(replaceText()));
-        setToolButton(4, "Undo", SLOT(undoEdit()));
-        setToolButton(5, "Redo", SLOT(redoEdit()));
-        setToolButton(6, "Dup", SLOT(duplicateLine()));
-        setToolButton(7, "Sel", SLOT(selectAllText()));
-        setToolButton(8, "Paste", SLOT(pasteText()));
+        setToolLabel(0, "Find");
+        setToolLabel(1, "Next");
+        setToolLabel(2, "R1");
+        setToolLabel(3, "All");
+        setToolLabel(4, "Undo");
+        setToolLabel(5, "Redo");
+        setToolLabel(6, "Dup");
+        setToolLabel(7, "Sel");
+        setToolLabel(8, "Paste");
     } else if (toolPage == 3) {
-        setToolButton(0, ">>", SLOT(indentLine()));
-        setToolButton(1, "<<", SLOT(outdentLine()));
-        setToolButton(2, "Up", SLOT(moveLineUp()));
-        setToolButton(3, "Dn", SLOT(moveLineDown()));
-        setToolButton(4, "Copy", SLOT(copyText()));
-        setToolButton(5, "Cut", SLOT(cutText()));
-        setToolButton(6, "Paste", SLOT(pasteText()));
-        setToolButton(7, "Date", SLOT(insertDate()));
-        setToolButton(8, "Time", SLOT(insertTime()));
+        setToolLabel(0, ">>");
+        setToolLabel(1, "<<");
+        setToolLabel(2, "Up");
+        setToolLabel(3, "Dn");
+        setToolLabel(4, "Copy");
+        setToolLabel(5, "Cut");
+        setToolLabel(6, "Paste");
+        setToolLabel(7, "Date");
+        setToolLabel(8, "Time");
     } else {
         if (toolPage == 4) {
-            setToolButton(0, "Done", SLOT(todoToggleDone()));
-            setToolButton(1, "Chk", SLOT(markSelectedTasksDone()));
-            setToolButton(2, "Open", SLOT(markSelectedTasksOpen()));
-            setToolButton(3, "A", SLOT(todoPriorityA()));
-            setToolButton(4, "B", SLOT(todoPriorityB()));
-            setToolButton(5, "C", SLOT(todoPriorityC()));
-            setToolButton(6, "+", SLOT(todoProject()));
-            setToolButton(7, "@", SLOT(todoContext()));
-            setToolButton(8, "Due", SLOT(todoDue()));
+            setToolLabel(0, "Done");
+            setToolLabel(1, "Chk");
+            setToolLabel(2, "Open");
+            setToolLabel(3, "A");
+            setToolLabel(4, "B");
+            setToolLabel(5, "C");
+            setToolLabel(6, "+");
+            setToolLabel(7, "@");
+            setToolLabel(8, "Due");
         } else {
-            setToolButton(0, "Sort", SLOT(todoSortPriority()));
-            setToolButton(1, "Hide", SLOT(toggleHideDone()));
-            setToolButton(2, "F+", SLOT(filterTodoProject()));
-            setToolButton(3, "F@", SLOT(filterTodoContext()));
-            setToolButton(4, "FClr", SLOT(clearTodoFilter()));
-            setToolButton(5, "End", SLOT(moveDoneTasksToEnd()));
-            setToolButton(6, "Clr", SLOT(clearDoneTasks()));
-            setToolButton(7, "A+", SLOT(fontBigger()));
-            setToolButton(8, "A-", SLOT(fontSmaller()));
+            setToolLabel(0, "Sort");
+            setToolLabel(1, "Hide");
+            setToolLabel(2, "F+");
+            setToolLabel(3, "F@");
+            setToolLabel(4, "FClr");
+            setToolLabel(5, "End");
+            setToolLabel(6, "Clr");
+            setToolLabel(7, "A+");
+            setToolLabel(8, "A-");
         }
     }
-    setToolButton(9, "More", SLOT(nextToolPage()));
+    setToolLabel(9, "More");
     toolBar->update();
 }
 
-void MainWindow::setToolButton(int index, const char *text, const char *slot)
+void MainWindow::setToolLabel(int index, const char *text)
 {
     if (index < 0 || index >= 10 || !toolButtons[index])
         return;
-    disconnect(toolButtons[index], SIGNAL(clicked()), 0, 0);
     toolButtons[index]->setText(text);
-    connect(toolButtons[index], SIGNAL(clicked()), this, slot);
     toolButtons[index]->show();
 }
 
@@ -243,6 +272,87 @@ void MainWindow::nextToolPage()
     rebuildToolBar();
     touchEditor();
 }
+
+void MainWindow::runTool(int index)
+{
+    if (index == 9) {
+        nextToolPage();
+        return;
+    }
+
+    if (toolPage == 0) {
+        if (index == 0) wrapBold();
+        else if (index == 1) wrapItalic();
+        else if (index == 2) wrapCode();
+        else if (index == 3) cycleHeading();
+        else if (index == 4) toggleBullet();
+        else if (index == 5) toggleNumber();
+        else if (index == 6) toggleTaskCurrent();
+        else if (index == 7) quoteLine();
+        else if (index == 8) insertRule();
+    } else if (toolPage == 1) {
+        if (index == 0) insertLink();
+        else if (index == 1) insertImage();
+        else if (index == 2) insertTable();
+        else if (index == 3) insertCodeBlock();
+        else if (index == 4) insertDate();
+        else if (index == 5) insertTime();
+        else if (index == 6) fontBigger();
+        else if (index == 7) fontSmaller();
+        else if (index == 8) toggleTheme();
+    } else if (toolPage == 2) {
+        if (index == 0) findText();
+        else if (index == 1) findNext();
+        else if (index == 2) replaceOne();
+        else if (index == 3) replaceText();
+        else if (index == 4) undoEdit();
+        else if (index == 5) redoEdit();
+        else if (index == 6) duplicateLine();
+        else if (index == 7) selectAllText();
+        else if (index == 8) pasteText();
+    } else if (toolPage == 3) {
+        if (index == 0) indentLine();
+        else if (index == 1) outdentLine();
+        else if (index == 2) moveLineUp();
+        else if (index == 3) moveLineDown();
+        else if (index == 4) copyText();
+        else if (index == 5) cutText();
+        else if (index == 6) pasteText();
+        else if (index == 7) insertDate();
+        else if (index == 8) insertTime();
+    } else if (toolPage == 4) {
+        if (index == 0) todoToggleDone();
+        else if (index == 1) markSelectedTasksDone();
+        else if (index == 2) markSelectedTasksOpen();
+        else if (index == 3) todoPriorityA();
+        else if (index == 4) todoPriorityB();
+        else if (index == 5) todoPriorityC();
+        else if (index == 6) todoProject();
+        else if (index == 7) todoContext();
+        else if (index == 8) todoDue();
+    } else {
+        if (index == 0) todoSortPriority();
+        else if (index == 1) toggleHideDone();
+        else if (index == 2) filterTodoProject();
+        else if (index == 3) filterTodoContext();
+        else if (index == 4) clearTodoFilter();
+        else if (index == 5) moveDoneTasksToEnd();
+        else if (index == 6) clearDoneTasks();
+        else if (index == 7) fontBigger();
+        else if (index == 8) fontSmaller();
+    }
+}
+
+void MainWindow::tool0() { runTool(0); }
+void MainWindow::tool1() { runTool(1); }
+void MainWindow::tool2() { runTool(2); }
+void MainWindow::tool3() { runTool(3); }
+void MainWindow::tool4() { runTool(4); }
+void MainWindow::tool5() { runTool(5); }
+void MainWindow::tool6() { runTool(6); }
+void MainWindow::tool7() { runTool(7); }
+void MainWindow::tool8() { runTool(8); }
+void MainWindow::tool9() { runTool(9); }
 
 void MainWindow::updateCaption()
 {

@@ -23,6 +23,8 @@ The current milestone is a compact Markor-style Markdown notebook:
   of fixed buttons instead of destroying widgets at runtime
 - bottom toolbar uses ten fixed 63px buttons to fill the 640px landscape
   screen, and the file browser lists real directory entries once
+- toolbar buttons keep stable signal connections and relayout from the current
+  window width, which is safer under Qtopia magnified display mode
 - explicit `song` QPF font selection for the app, editor, preview, browser,
   and toolbar controls
 - Markdown to Qt rich text conversion with headings, inline strong/emphasis,
