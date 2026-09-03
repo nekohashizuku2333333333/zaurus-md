@@ -91,6 +91,8 @@ private:
     QPushButton *makeButton(QWidget *parent, const char *text, const char *slot);
     QPushButton *makeTopButton(QWidget *parent, const char *text, const char *slot);
     void rebuildToolBar();
+    void setToolButton(int index, const char *text, const char *slot);
+    void updateCaption();
     void loadDirectory(const QString &path);
     void openFile(const QString &path);
     void refreshView();
@@ -130,6 +132,7 @@ private:
     QWidget *fileBar;
     QWidget *docBar;
     QWidget *toolBar;
+    QPushButton *toolButtons[8];
     QTimer *autosaveTimer;
     QString lastFind;
     QString todoFilter;

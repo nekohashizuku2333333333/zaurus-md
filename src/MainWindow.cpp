@@ -47,6 +47,8 @@ MainWindow::MainWindow(QWidget *parent, const char *name)
       toolPage(0),
       fontSize(12)
 {
+    for (int i = 0; i < 8; ++i)
+        toolButtons[i] = 0;
     FileUtil::ensureDir(notesDir);
     buildUi();
     loadDirectory(notesDir);
@@ -58,6 +60,7 @@ void MainWindow::buildUi()
     setCentralWidget(root);
 
     fileBar = new QHBox(root);
+    fileBar->setFixedHeight(32);
     makeTopButton(fileBar, "^", SLOT(goUp()));
     makeTopButton(fileBar, "+F", SLOT(newFile()));
     makeTopButton(fileBar, "+D", SLOT(newFolder()));
@@ -65,6 +68,7 @@ void MainWindow::buildUi()
     makeTopButton(fileBar, "Del", SLOT(deleteFile()));
 
     docBar = new QHBox(root);
+    docBar->setFixedHeight(32);
     makeTopButton(docBar, "<", SLOT(showBrowser()));
     modeButton = makeTopButton(docBar, "V", SLOT(showView()));
     makeTopButton(docBar, "S", SLOT(saveFile()));
@@ -90,6 +94,12 @@ void MainWindow::buildUi()
 
     toolBar = new QWidget(root);
     toolBar->setFixedHeight(30);
+    for (int i = 0; i < 8; ++i) {
+        toolButtons[i] = new QPushButton("", toolBar);
+        toolButtons[i]->setFont(QFont("song", 10));
+        toolButtons[i]->setFixedSize(38, 24);
+        toolButtons[i]->move(i * 39, 3);
+    }
     rebuildToolBar();
 
     autosaveTimer = new QTimer(this);
@@ -100,6 +110,7 @@ void MainWindow::buildUi()
     stack->raiseWidget(browser);
     docBar->hide();
     fileBar->show();
+    updateCaption();
 }
 
 QPushButton *MainWindow::makeButton(QWidget *parent, const char *text, const char *slot)
@@ -117,69 +128,69 @@ QPushButton *MainWindow::makeButton(QWidget *parent, const char *text, const cha
 
 void MainWindow::rebuildToolBar()
 {
-    QObjectList *children = toolBar->queryList("QPushButton");
-    if (children) {
-        QObjectListIt it(*children);
-        QObject *obj;
-        while ((obj = it.current()) != 0) {
-            ++it;
-            delete obj;
-        }
-        delete children;
-    }
-
     if (toolPage == 0) {
-        makeButton(toolBar, "B", SLOT(wrapBold()));
-        makeButton(toolBar, "I", SLOT(wrapItalic()));
-        makeButton(toolBar, "`", SLOT(wrapCode()));
-        makeButton(toolBar, "H", SLOT(cycleHeading()));
-        makeButton(toolBar, "-", SLOT(toggleBullet()));
-        makeButton(toolBar, "1.", SLOT(toggleNumber()));
-        makeButton(toolBar, "[ ]", SLOT(toggleTaskCurrent()));
+        setToolButton(0, "B", SLOT(wrapBold()));
+        setToolButton(1, "I", SLOT(wrapItalic()));
+        setToolButton(2, "`", SLOT(wrapCode()));
+        setToolButton(3, "H", SLOT(cycleHeading()));
+        setToolButton(4, "-", SLOT(toggleBullet()));
+        setToolButton(5, "1.", SLOT(toggleNumber()));
+        setToolButton(6, "[ ]", SLOT(toggleTaskCurrent()));
     } else if (toolPage == 1) {
-        makeButton(toolBar, ">", SLOT(quoteLine()));
-        makeButton(toolBar, "Link", SLOT(insertLink()));
-        makeButton(toolBar, "Img", SLOT(insertImage()));
-        makeButton(toolBar, "Tbl", SLOT(insertTable()));
-        makeButton(toolBar, "Code", SLOT(insertCodeBlock()));
-        makeButton(toolBar, "---", SLOT(insertRule()));
-        makeButton(toolBar, "Date", SLOT(insertDate()));
+        setToolButton(0, ">", SLOT(quoteLine()));
+        setToolButton(1, "Link", SLOT(insertLink()));
+        setToolButton(2, "Img", SLOT(insertImage()));
+        setToolButton(3, "Tbl", SLOT(insertTable()));
+        setToolButton(4, "Code", SLOT(insertCodeBlock()));
+        setToolButton(5, "---", SLOT(insertRule()));
+        setToolButton(6, "Date", SLOT(insertDate()));
     } else if (toolPage == 2) {
-        makeButton(toolBar, "Find", SLOT(findText()));
-        makeButton(toolBar, "Next", SLOT(findNext()));
-        makeButton(toolBar, "R1", SLOT(replaceOne()));
-        makeButton(toolBar, "All", SLOT(replaceText()));
-        makeButton(toolBar, "Undo", SLOT(undoEdit()));
-        makeButton(toolBar, "Redo", SLOT(redoEdit()));
-        makeButton(toolBar, "Dup", SLOT(duplicateLine()));
+        setToolButton(0, "Find", SLOT(findText()));
+        setToolButton(1, "Next", SLOT(findNext()));
+        setToolButton(2, "R1", SLOT(replaceOne()));
+        setToolButton(3, "All", SLOT(replaceText()));
+        setToolButton(4, "Undo", SLOT(undoEdit()));
+        setToolButton(5, "Redo", SLOT(redoEdit()));
+        setToolButton(6, "Dup", SLOT(duplicateLine()));
     } else if (toolPage == 3) {
-        makeButton(toolBar, ">>", SLOT(indentLine()));
-        makeButton(toolBar, "<<", SLOT(outdentLine()));
-        makeButton(toolBar, "Up", SLOT(moveLineUp()));
-        makeButton(toolBar, "Dn", SLOT(moveLineDown()));
-        makeButton(toolBar, "Copy", SLOT(copyText()));
-        makeButton(toolBar, "Cut", SLOT(cutText()));
-        makeButton(toolBar, "Paste", SLOT(pasteText()));
+        setToolButton(0, ">>", SLOT(indentLine()));
+        setToolButton(1, "<<", SLOT(outdentLine()));
+        setToolButton(2, "Up", SLOT(moveLineUp()));
+        setToolButton(3, "Dn", SLOT(moveLineDown()));
+        setToolButton(4, "Copy", SLOT(copyText()));
+        setToolButton(5, "Cut", SLOT(cutText()));
+        setToolButton(6, "Paste", SLOT(pasteText()));
     } else {
         if (toolPage == 4) {
-            makeButton(toolBar, "Done", SLOT(todoToggleDone()));
-            makeButton(toolBar, "Chk", SLOT(markSelectedTasksDone()));
-            makeButton(toolBar, "Open", SLOT(markSelectedTasksOpen()));
-            makeButton(toolBar, "A", SLOT(todoPriorityA()));
-            makeButton(toolBar, "B", SLOT(todoPriorityB()));
-            makeButton(toolBar, "C", SLOT(todoPriorityC()));
-            makeButton(toolBar, "+", SLOT(todoProject()));
+            setToolButton(0, "Done", SLOT(todoToggleDone()));
+            setToolButton(1, "Chk", SLOT(markSelectedTasksDone()));
+            setToolButton(2, "Open", SLOT(markSelectedTasksOpen()));
+            setToolButton(3, "A", SLOT(todoPriorityA()));
+            setToolButton(4, "B", SLOT(todoPriorityB()));
+            setToolButton(5, "C", SLOT(todoPriorityC()));
+            setToolButton(6, "+", SLOT(todoProject()));
         } else {
-            makeButton(toolBar, "@", SLOT(todoContext()));
-            makeButton(toolBar, "Due", SLOT(todoDue()));
-            makeButton(toolBar, "Sort", SLOT(todoSortPriority()));
-            makeButton(toolBar, "Hide", SLOT(toggleHideDone()));
-            makeButton(toolBar, "F+", SLOT(filterTodoProject()));
-            makeButton(toolBar, "F@", SLOT(filterTodoContext()));
-            makeButton(toolBar, "Clr", SLOT(clearDoneTasks()));
+            setToolButton(0, "@", SLOT(todoContext()));
+            setToolButton(1, "Due", SLOT(todoDue()));
+            setToolButton(2, "Sort", SLOT(todoSortPriority()));
+            setToolButton(3, "Hide", SLOT(toggleHideDone()));
+            setToolButton(4, "F+", SLOT(filterTodoProject()));
+            setToolButton(5, "F@", SLOT(filterTodoContext()));
+            setToolButton(6, "Clr", SLOT(clearDoneTasks()));
         }
     }
-    makeButton(toolBar, "More", SLOT(nextToolPage()));
+    setToolButton(7, "More", SLOT(nextToolPage()));
+    toolBar->update();
+}
+
+void MainWindow::setToolButton(int index, const char *text, const char *slot)
+{
+    if (index < 0 || index >= 8 || !toolButtons[index])
+        return;
+    disconnect(toolButtons[index], SIGNAL(clicked()), 0, 0);
+    toolButtons[index]->setText(text);
+    connect(toolButtons[index], SIGNAL(clicked()), this, slot);
+    toolButtons[index]->show();
 }
 
 void MainWindow::nextToolPage()
@@ -189,6 +200,14 @@ void MainWindow::nextToolPage()
         toolPage = 0;
     rebuildToolBar();
     touchEditor();
+}
+
+void MainWindow::updateCaption()
+{
+    if (currentFile.isEmpty())
+        setCaption("Zaurus MDEditor");
+    else
+        setCaption("Zaurus MDEditor - " + QFileInfo(currentFile).fileName());
 }
 
 QPushButton *MainWindow::makeTopButton(QWidget *parent, const char *text, const char *slot)
@@ -203,6 +222,9 @@ QPushButton *MainWindow::makeTopButton(QWidget *parent, const char *text, const 
 void MainWindow::loadDirectory(const QString &path)
 {
     currentDir = path;
+    if (stack && stack->visibleWidget() == browser)
+        currentFile = QString::null;
+    updateCaption();
     browser->clear();
     if (path != notesDir)
         new QListViewItem(browser, "..", "");
@@ -254,7 +276,7 @@ void MainWindow::openFile(const QString &path)
     FileUtil::readUtf8(path, &text);
     editor->setText(text);
     editor->setEdited(false);
-    setCaption(QFileInfo(path).fileName());
+    updateCaption();
     showEditor();
 }
 
@@ -262,6 +284,8 @@ void MainWindow::showBrowser()
 {
     if (!currentFile.isEmpty())
         saveFile();
+    currentFile = QString::null;
+    updateCaption();
     docBar->hide();
     fileBar->show();
     stack->raiseWidget(browser);
@@ -410,7 +434,7 @@ void MainWindow::saveAsFile()
     currentFile = path;
     saveFile();
     loadDirectory(currentDir);
-    setCaption(name);
+    updateCaption();
 }
 
 void MainWindow::renameFile()
@@ -433,7 +457,7 @@ void MainWindow::renameFile()
     if (QDir().rename(path, next)) {
         if (path == currentFile) {
             currentFile = next;
-            setCaption(name);
+            updateCaption();
         }
         loadDirectory(currentDir);
     }
