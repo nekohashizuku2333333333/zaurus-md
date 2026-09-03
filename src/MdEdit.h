@@ -4,11 +4,10 @@
 #include <qmultilineedit.h>
 
 class MdEdit : public QMultiLineEdit {
+    Q_OBJECT
 public:
     MdEdit(QWidget *parent = 0, const char *name = 0)
-        : QMultiLineEdit(parent, name)
-    {
-    }
+        : QMultiLineEdit(parent, name) {}
 
     bool hasSelection() const
     {
@@ -29,7 +28,14 @@ public:
     {
         del();
     }
+
+signals:
+    void requestIndent();
+    void requestOutdent();
+    void requestNewLine();
+
+protected:
+    void keyPressEvent(QKeyEvent *event);
 };
 
 #endif
-

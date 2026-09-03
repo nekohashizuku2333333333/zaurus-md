@@ -76,6 +76,9 @@ void MainWindow::buildUi()
     editor = new MdEdit(stack);
     editor->setUndoEnabled(true);
     connect(editor, SIGNAL(textChanged()), this, SLOT(autosaveTick()));
+    connect(editor, SIGNAL(requestIndent()), this, SLOT(indentLine()));
+    connect(editor, SIGNAL(requestOutdent()), this, SLOT(outdentLine()));
+    connect(editor, SIGNAL(requestNewLine()), this, SLOT(smartNewLine()));
     view = new MdView(stack);
     connect(view, SIGNAL(toggleTask(int)), this, SLOT(toggleTask(int)));
 
@@ -439,6 +442,12 @@ void MainWindow::replaceCurrentLine(const QString &line)
 
 void MainWindow::applyLinePrefix(const QString &prefix, bool numbered)
 {
+    int first, last;
+    if (selectedLineRange(&first, &last) && first != last) {
+        applyLineRangePrefix(prefix, numbered);
+        return;
+    }
+
     int row, col;
     editor->getCursorPosition(&row, &col);
     QString line = editor->textLine(row);
@@ -454,6 +463,134 @@ void MainWindow::applyLinePrefix(const QString &prefix, bool numbered)
         replaceCurrentLine(stripped.mid(prefix.length()));
     else
         replaceCurrentLine(prefix + stripped);
+}
+
+bool MainWindow::selectedLineRange(int *firstLine, int *lastLine) const
+{
+    int l1, c1, l2, c2;
+    if (!editor->selectionRegion(&l1, &c1, &l2, &c2)) {
+        editor->getCursorPosition(&l1, &c1);
+        l2 = l1;
+    } else {
+        if (l2 < l1 || (l2 == l1 && c2 < c1)) {
+            int tl = l1;
+            l1 = l2;
+            l2 = tl;
+            int tc = c1;
+            c1 = c2;
+            c2 = tc;
+        }
+        if (c2 == 0 && l2 > l1)
+            --l2;
+    }
+    if (l1 < 0)
+        l1 = 0;
+    if (l2 >= editor->numLines())
+        l2 = editor->numLines() - 1;
+    if (firstLine)
+        *firstLine = l1;
+    if (lastLine)
+        *lastLine = l2;
+    return true;
+}
+
+void MainWindow::applyLineRangePrefix(const QString &prefix, bool numbered)
+{
+    int first, last;
+    selectedLineRange(&first, &last);
+    for (int row = first; row <= last; ++row) {
+        QString line = editor->textLine(row);
+        QString stripped = line.stripWhiteSpace();
+        if (numbered) {
+            int dot = stripped.find(". ");
+            if (dot > 0 && dot < 4) {
+                bool digits = true;
+                for (int i = 0; i < dot; ++i) {
+                    if (stripped[i] < '0' || stripped[i] > '9')
+                        digits = false;
+                }
+                if (digits)
+                    line = stripped.mid(dot + 2);
+                else
+                    line = QString::number(row - first + 1) + ". " + stripped;
+            } else {
+                line = QString::number(row - first + 1) + ". " + stripped;
+            }
+        } else if (stripped.left(prefix.length()) == prefix) {
+            line = stripped.mid(prefix.length());
+        } else {
+            line = prefix + stripped;
+        }
+        setCurrentLineText(row, line);
+    }
+    editor->setCursorPosition(first, 0);
+    touchEditor();
+    scheduleAutosave();
+}
+
+void MainWindow::transformLineRange(const QString &mode)
+{
+    int first, last;
+    selectedLineRange(&first, &last);
+    for (int row = first; row <= last; ++row) {
+        QString line = editor->textLine(row);
+        if (mode == "indent") {
+            line = "    " + line;
+        } else if (mode == "outdent") {
+            if (line.left(4) == "    ")
+                line = line.mid(4);
+            else if (line.left(1) == "\t")
+                line = line.mid(1);
+        } else if (mode == "task") {
+            int p = line.find("[ ]");
+            if (p >= 0) {
+                line.replace(p, 3, "[x]");
+            } else {
+                p = line.find("[x]");
+                if (p < 0)
+                    p = line.find("[X]");
+                if (p >= 0)
+                    line.replace(p, 3, "[ ]");
+                else
+                    line = "- [ ] " + line.stripWhiteSpace();
+            }
+        } else if (mode == "priority") {
+            line = line.stripWhiteSpace();
+        }
+        setCurrentLineText(row, line);
+    }
+    editor->setCursorPosition(first, 0);
+    touchEditor();
+    scheduleAutosave();
+}
+
+QString MainWindow::continuationForLine(const QString &line) const
+{
+    int p = 0;
+    while (p < (int)line.length() && (line[p] == ' ' || line[p] == '\t'))
+        ++p;
+    QString indent = line.left(p);
+    QString s = line.mid(p);
+    if (s.left(6) == "- [ ] " || s.left(6) == "- [x] " || s.left(6) == "- [X] ")
+        return indent + "- [ ] ";
+    if (s.left(2) == "- " || s.left(2) == "* ")
+        return indent + s.left(2);
+    if (s.left(2) == "> ")
+        return indent + "> ";
+    int dot = s.find(". ");
+    if (dot > 0 && dot < 4) {
+        bool digits = true;
+        int n = 0;
+        for (int i = 0; i < dot; ++i) {
+            if (s[i] < '0' || s[i] > '9')
+                digits = false;
+            else
+                n = n * 10 + s[i].latin1() - '0';
+        }
+        if (digits)
+            return indent + QString::number(n + 1) + ". ";
+    }
+    return "";
 }
 
 void MainWindow::touchEditor()
@@ -537,6 +674,12 @@ void MainWindow::toggleNumber()
 
 void MainWindow::toggleTaskCurrent()
 {
+    int first, last;
+    if (selectedLineRange(&first, &last) && first != last) {
+        transformLineRange("task");
+        return;
+    }
+
     int row, col;
     editor->getCursorPosition(&row, &col);
     QString line = editor->textLine(row);
@@ -577,6 +720,12 @@ void MainWindow::insertRule()
 
 void MainWindow::indentLine()
 {
+    int first, last;
+    if (selectedLineRange(&first, &last) && first != last) {
+        transformLineRange("indent");
+        return;
+    }
+
     int row, col;
     editor->getCursorPosition(&row, &col);
     replaceCurrentLine("    " + editor->textLine(row));
@@ -584,6 +733,12 @@ void MainWindow::indentLine()
 
 void MainWindow::outdentLine()
 {
+    int first, last;
+    if (selectedLineRange(&first, &last) && first != last) {
+        transformLineRange("outdent");
+        return;
+    }
+
     int row, col;
     editor->getCursorPosition(&row, &col);
     QString line = editor->textLine(row);
@@ -616,6 +771,26 @@ void MainWindow::redoEdit()
 {
     editor->redo();
     touchEditor();
+}
+
+void MainWindow::smartNewLine()
+{
+    int row, col;
+    editor->getCursorPosition(&row, &col);
+    QString line = editor->textLine(row);
+    QString cont = continuationForLine(line);
+    if (!cont.isEmpty() && line.mid(col).stripWhiteSpace().isEmpty()) {
+        QString before = line.left(col).stripWhiteSpace();
+        QString prefix = cont.stripWhiteSpace();
+        if (before == prefix || before == "- [x]" || before == "- [X]") {
+            setCurrentLineText(row, "");
+            editor->setCursorPosition(row, 0);
+            scheduleAutosave();
+            return;
+        }
+    }
+    editor->insert("\n" + cont);
+    scheduleAutosave();
 }
 
 void MainWindow::findText()
@@ -706,30 +881,30 @@ void MainWindow::replaceText()
 
 void MainWindow::moveLineUp()
 {
-    int row, col;
-    editor->getCursorPosition(&row, &col);
-    if (row <= 0)
+    int first, last;
+    selectedLineRange(&first, &last);
+    if (first <= 0)
         return;
-    QString prev = editor->textLine(row - 1);
-    QString cur = editor->textLine(row);
-    setCurrentLineText(row - 1, cur);
-    setCurrentLineText(row, prev);
-    editor->setCursorPosition(row - 1, col);
+    QString prev = editor->textLine(first - 1);
+    for (int row = first - 1; row < last; ++row)
+        setCurrentLineText(row, editor->textLine(row + 1));
+    setCurrentLineText(last, prev);
+    editor->setCursorPosition(first - 1, 0);
     touchEditor();
     scheduleAutosave();
 }
 
 void MainWindow::moveLineDown()
 {
-    int row, col;
-    editor->getCursorPosition(&row, &col);
-    if (row >= editor->numLines() - 1)
+    int first, last;
+    selectedLineRange(&first, &last);
+    if (last >= editor->numLines() - 1)
         return;
-    QString cur = editor->textLine(row);
-    QString next = editor->textLine(row + 1);
-    setCurrentLineText(row, next);
-    setCurrentLineText(row + 1, cur);
-    editor->setCursorPosition(row + 1, col);
+    QString next = editor->textLine(last + 1);
+    for (int row = last + 1; row > first; --row)
+        setCurrentLineText(row, editor->textLine(row - 1));
+    setCurrentLineText(first, next);
+    editor->setCursorPosition(first + 1, 0);
     touchEditor();
     scheduleAutosave();
 }
@@ -755,14 +930,18 @@ void MainWindow::todoToggleDone()
 
 void MainWindow::setTodoPriority(const QString &priority)
 {
-    int row, col;
-    editor->getCursorPosition(&row, &col);
-    QString line = editor->textLine(row).stripWhiteSpace();
-    if (line.length() >= 4 && line[0] == '(' && line[2] == ')' && line[1] >= 'A' && line[1] <= 'Z')
-        line = line.mid(4);
-    if (!priority.isEmpty())
-        line = "(" + priority + ") " + line;
-    replaceCurrentLine(line);
+    int first, last;
+    selectedLineRange(&first, &last);
+    for (int row = first; row <= last; ++row) {
+        QString line = editor->textLine(row).stripWhiteSpace();
+        if (line.length() >= 4 && line[0] == '(' && line[2] == ')' && line[1] >= 'A' && line[1] <= 'Z')
+            line = line.mid(4);
+        if (!priority.isEmpty())
+            line = "(" + priority + ") " + line;
+        setCurrentLineText(row, line);
+    }
+    editor->setCursorPosition(first, 0);
+    touchEditor();
     scheduleAutosave();
 }
 

@@ -15,6 +15,7 @@ HEADERS = \
 SOURCES = \
     src/main.cpp \
     src/MainWindow.cpp \
+    src/MdEdit.cpp \
     src/MdView.cpp \
     src/TextPrompt.cpp \
     src/MdParser.cpp \

@@ -68,6 +68,7 @@ private slots:
     void fontSmaller();
     void toggleTheme();
     void autosaveTick();
+    void smartNewLine();
 
 private:
     void buildUi();
@@ -81,6 +82,10 @@ private:
     void replaceCurrentLine(const QString &line);
     void setCurrentLineText(int lineNo, const QString &line);
     void applyLinePrefix(const QString &prefix, bool numbered);
+    bool selectedLineRange(int *firstLine, int *lastLine) const;
+    void applyLineRangePrefix(const QString &prefix, bool numbered);
+    void transformLineRange(const QString &mode);
+    QString continuationForLine(const QString &line) const;
     void replaceAllText(const QString &text, int cursorLine);
     QString currentSelectedPath() const;
     bool isTodoFile() const;

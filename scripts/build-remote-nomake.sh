@@ -14,20 +14,23 @@ LFLAGS=""
 
 rm -rf DIST
 mkdir -p DIST
-rm -f src/*.o *.o moc_MainWindow.cpp moc_MdView.cpp
+rm -f src/*.o *.o moc_MainWindow.cpp moc_MdEdit.cpp moc_MdView.cpp
 
 "$MOC" src/MainWindow.h -o moc_MainWindow.cpp
+"$MOC" src/MdEdit.h -o moc_MdEdit.cpp
 "$MOC" src/MdView.h -o moc_MdView.cpp
 
 for f in \
   src/main.cpp \
   src/MainWindow.cpp \
+  src/MdEdit.cpp \
   src/MdView.cpp \
   src/TextPrompt.cpp \
   src/MdParser.cpp \
   src/TodoTxt.cpp \
   src/FileUtil.cpp \
   moc_MainWindow.cpp \
+  moc_MdEdit.cpp \
   moc_MdView.cpp
 do
   o="${f%.cpp}.o"
@@ -35,8 +38,8 @@ do
 done
 
 "$CXX" $LFLAGS -o DIST/zaurusmd \
-  src/main.o src/MainWindow.o src/MdView.o src/TextPrompt.o src/MdParser.o \
-  src/TodoTxt.o src/FileUtil.o moc_MainWindow.o moc_MdView.o \
+  src/main.o src/MainWindow.o src/MdEdit.o src/MdView.o src/TextPrompt.o src/MdParser.o \
+  src/TodoTxt.o src/FileUtil.o moc_MainWindow.o moc_MdEdit.o moc_MdView.o \
   $LIBS
 
 ./scripts/build-ipk.sh

@@ -12,12 +12,14 @@ LIBS = -Lcompat-lib -L$(QTDIR)/lib -lqpe -lqte -ljpeg
 SOURCES = \
 	src/main.cpp \
 	src/MainWindow.cpp \
+	src/MdEdit.cpp \
 	src/MdView.cpp \
 	src/TextPrompt.cpp \
 	src/MdParser.cpp \
 	src/TodoTxt.cpp \
 	src/FileUtil.cpp \
 	moc_MainWindow.cpp \
+	moc_MdEdit.cpp \
 	moc_MdView.cpp
 
 OBJECTS = $(SOURCES:.cpp=.o)
@@ -33,6 +35,9 @@ $(TARGET): $(OBJECTS)
 moc_MainWindow.cpp: src/MainWindow.h
 	$(MOC) src/MainWindow.h -o moc_MainWindow.cpp
 
+moc_MdEdit.cpp: src/MdEdit.h
+	$(MOC) src/MdEdit.h -o moc_MdEdit.cpp
+
 moc_MdView.cpp: src/MdView.h
 	$(MOC) src/MdView.h -o moc_MdView.cpp
 
@@ -40,5 +45,5 @@ moc_MdView.cpp: src/MdView.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o $@ $<
 
 clean:
-	rm -f src/*.o *.o moc_MainWindow.cpp moc_MdView.cpp
+	rm -f src/*.o *.o moc_MainWindow.cpp moc_MdEdit.cpp moc_MdView.cpp
 	rm -rf DIST IPK *.ipk control.tar.gz data.tar.gz debian-binary

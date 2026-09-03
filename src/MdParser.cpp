@@ -90,6 +90,8 @@ QString MdParser::toRichText(const QString &markdown, QValueList<MdBlockMap> *ma
     QString html = "<html><body>";
     bool inCode = false;
     int richBlock = 0;
+    bool inUl = false;
+    bool inOl = false;
 
     for (uint i = 0; i < lines.count(); ++i) {
         QString line = lines[i];
@@ -101,6 +103,14 @@ QString MdParser::toRichText(const QString &markdown, QValueList<MdBlockMap> *ma
             map->append(bm);
 
         if (line.left(3) == "```") {
+            if (inUl) {
+                html += "</ul>";
+                inUl = false;
+            }
+            if (inOl) {
+                html += "</ol>";
+                inOl = false;
+            }
             inCode = !inCode;
             html += "<pre>" + escape(line) + "</pre>";
             continue;
@@ -110,6 +120,14 @@ QString MdParser::toRichText(const QString &markdown, QValueList<MdBlockMap> *ma
             continue;
         }
         if (line.isEmpty()) {
+            if (inUl) {
+                html += "</ul>";
+                inUl = false;
+            }
+            if (inOl) {
+                html += "</ol>";
+                inOl = false;
+            }
             html += "<br>";
             continue;
         }
@@ -117,6 +135,14 @@ QString MdParser::toRichText(const QString &markdown, QValueList<MdBlockMap> *ma
         int boxPos = -1;
         bool checked = false;
         if (isTaskLine(line, &boxPos, &checked)) {
+            if (inUl) {
+                html += "</ul>";
+                inUl = false;
+            }
+            if (inOl) {
+                html += "</ol>";
+                inOl = false;
+            }
             QString before = escape(line.left(boxPos));
             QString after = inlineRich(line.mid(boxPos + 3).stripWhiteSpace());
             QString mark = checked ? "[x]" : "[ ]";
@@ -126,6 +152,14 @@ QString MdParser::toRichText(const QString &markdown, QValueList<MdBlockMap> *ma
             continue;
         }
         if (line[0] == '#') {
+            if (inUl) {
+                html += "</ul>";
+                inUl = false;
+            }
+            if (inOl) {
+                html += "</ol>";
+                inOl = false;
+            }
             int level = 0;
             while (level < (int)line.length() && line[level] == '#')
                 ++level;
@@ -135,16 +169,77 @@ QString MdParser::toRichText(const QString &markdown, QValueList<MdBlockMap> *ma
             }
         }
         if (line.left(1) == ">") {
+            if (inUl) {
+                html += "</ul>";
+                inUl = false;
+            }
+            if (inOl) {
+                html += "</ol>";
+                inOl = false;
+            }
             html += "<p><font color=\"#606060\">" + inlineRich(line.mid(1).stripWhiteSpace()) + "</font></p>";
             continue;
         }
         if (line == "---" || line == "***") {
+            if (inUl) {
+                html += "</ul>";
+                inUl = false;
+            }
+            if (inOl) {
+                html += "</ol>";
+                inOl = false;
+            }
             html += "<hr>";
             continue;
+        }
+        QString stripped = line.stripWhiteSpace();
+        if (stripped.left(2) == "- " || stripped.left(2) == "* ") {
+            if (inOl) {
+                html += "</ol>";
+                inOl = false;
+            }
+            if (!inUl) {
+                html += "<ul>";
+                inUl = true;
+            }
+            html += "<li>" + inlineRich(stripped.mid(2)) + "</li>";
+            continue;
+        }
+        int dot = stripped.find(". ");
+        if (dot > 0 && dot < 4) {
+            bool digits = true;
+            for (int d = 0; d < dot; ++d) {
+                if (stripped[d] < '0' || stripped[d] > '9')
+                    digits = false;
+            }
+            if (digits) {
+                if (inUl) {
+                    html += "</ul>";
+                    inUl = false;
+                }
+                if (!inOl) {
+                    html += "<ol>";
+                    inOl = true;
+                }
+                html += "<li>" + inlineRich(stripped.mid(dot + 2)) + "</li>";
+                continue;
+            }
+        }
+        if (inUl) {
+            html += "</ul>";
+            inUl = false;
+        }
+        if (inOl) {
+            html += "</ol>";
+            inOl = false;
         }
         html += "<p>" + inlineRich(line) + "</p>";
     }
 
+    if (inUl)
+        html += "</ul>";
+    if (inOl)
+        html += "</ol>";
     html += "</body></html>";
     return html;
 }
