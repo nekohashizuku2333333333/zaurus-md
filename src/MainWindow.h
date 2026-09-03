@@ -88,6 +88,7 @@ private slots:
 private:
     void buildUi();
     QPushButton *makeButton(QWidget *parent, const char *text, const char *slot);
+    QPushButton *makeTopButton(QWidget *parent, const char *text, const char *slot);
     void loadDirectory(const QString &path);
     void openFile(const QString &path);
     void refreshView();
@@ -124,6 +125,8 @@ private:
     MdEdit *editor;
     MdView *view;
     QPushButton *modeButton;
+    QWidget *fileBar;
+    QWidget *docBar;
     QTimer *autosaveTimer;
     QString lastFind;
     QString todoFilter;

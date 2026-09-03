@@ -12,6 +12,10 @@ The current milestone is a compact Markor-style Markdown notebook:
 
 - file browser rooted at `/home/zaurus/Documents/Notes`
 - edit/view switch
+- separate browser/document button bars so file management stays out of the
+  editor, with compact Zaurus-sized buttons
+- explicit `song` QPF font selection for the app, editor, preview, browser,
+  and toolbar controls
 - Markdown to Qt rich text conversion with headings, inline strong/emphasis,
   code, links, images, strikeout, quotes, rules, bullet lists, numbered lists,
   and task links

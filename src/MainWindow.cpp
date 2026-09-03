@@ -15,11 +15,13 @@
 #include <qlistview.h>
 #include <qmessagebox.h>
 #include <qmultilineedit.h>
+#include <qobjectlist.h>
 #include <qpalette.h>
 #include <qpushbutton.h>
 #include <qscrollview.h>
 #include <qstatusbar.h>
 #include <qdatetime.h>
+#include <qfont.h>
 #include <qtimer.h>
 #include <qtoolbar.h>
 #include <qtoolbutton.h>
@@ -36,6 +38,8 @@ MainWindow::MainWindow(QWidget *parent, const char *name)
       editor(0),
       view(0),
       modeButton(0),
+      fileBar(0),
+      docBar(0),
       autosaveTimer(0),
       todoFilter(""),
       darkTheme(false),
@@ -52,25 +56,17 @@ void MainWindow::buildUi()
     QVBox *root = new QVBox(this);
     setCentralWidget(root);
 
-    QHBox *top = new QHBox(root);
-    QPushButton *back = new QPushButton("<", top);
-    connect(back, SIGNAL(clicked()), this, SLOT(showBrowser()));
-    QPushButton *up = new QPushButton("Up", top);
-    connect(up, SIGNAL(clicked()), this, SLOT(goUp()));
-    QPushButton *fresh = new QPushButton("New", top);
-    connect(fresh, SIGNAL(clicked()), this, SLOT(newFile()));
-    QPushButton *folder = new QPushButton("Dir", top);
-    connect(folder, SIGNAL(clicked()), this, SLOT(newFolder()));
-    QPushButton *saveAs = new QPushButton("As", top);
-    connect(saveAs, SIGNAL(clicked()), this, SLOT(saveAsFile()));
-    QPushButton *ren = new QPushButton("Ren", top);
-    connect(ren, SIGNAL(clicked()), this, SLOT(renameFile()));
-    QPushButton *del = new QPushButton("Del", top);
-    connect(del, SIGNAL(clicked()), this, SLOT(deleteFile()));
-    modeButton = new QPushButton("View", top);
-    connect(modeButton, SIGNAL(clicked()), this, SLOT(showView()));
-    QPushButton *save = new QPushButton("Save", top);
-    connect(save, SIGNAL(clicked()), this, SLOT(saveFile()));
+    fileBar = new QHBox(root);
+    makeTopButton(fileBar, "^", SLOT(goUp()));
+    makeTopButton(fileBar, "+F", SLOT(newFile()));
+    makeTopButton(fileBar, "+D", SLOT(newFolder()));
+    makeTopButton(fileBar, "Ren", SLOT(renameFile()));
+    makeTopButton(fileBar, "Del", SLOT(deleteFile()));
+
+    docBar = new QHBox(root);
+    makeTopButton(docBar, "<", SLOT(showBrowser()));
+    modeButton = makeTopButton(docBar, "V", SLOT(showView()));
+    makeTopButton(docBar, "S", SLOT(saveFile()));
 
     stack = new QWidgetStack(root);
     browser = new QListView(stack);
@@ -94,7 +90,7 @@ void MainWindow::buildUi()
     QScrollView *tools = new QScrollView(root);
     tools->setVScrollBarMode(QScrollView::AlwaysOff);
     tools->setHScrollBarMode(QScrollView::Auto);
-    QHBox *bar = new QHBox(tools->viewport());
+    QWidget *bar = new QWidget(tools->viewport());
     tools->addChild(bar);
     makeButton(bar, "B", SLOT(wrapBold()));
     makeButton(bar, "I", SLOT(wrapItalic()));
@@ -157,11 +153,28 @@ void MainWindow::buildUi()
     applyTheme();
 
     stack->raiseWidget(browser);
+    docBar->hide();
+    fileBar->show();
 }
 
 QPushButton *MainWindow::makeButton(QWidget *parent, const char *text, const char *slot)
 {
     QPushButton *button = new QPushButton(text, parent);
+    button->setFont(QFont("song", 10));
+    button->setFixedSize(34, 24);
+    QObjectList *siblings = parent->queryList("QPushButton");
+    int index = siblings ? siblings->count() - 1 : 0;
+    delete siblings;
+    button->move(index * 35, 1);
+    connect(button, SIGNAL(clicked()), this, slot);
+    return button;
+}
+
+QPushButton *MainWindow::makeTopButton(QWidget *parent, const char *text, const char *slot)
+{
+    QPushButton *button = new QPushButton(text, parent);
+    button->setFont(QFont("song", 10));
+    button->setFixedSize(40, 30);
     connect(button, SIGNAL(clicked()), this, slot);
     return button;
 }
@@ -228,13 +241,18 @@ void MainWindow::showBrowser()
 {
     if (!currentFile.isEmpty())
         saveFile();
+    docBar->hide();
+    fileBar->show();
     stack->raiseWidget(browser);
+    browser->setFocus();
 }
 
 void MainWindow::showEditor()
 {
+    fileBar->hide();
+    docBar->show();
     stack->raiseWidget(editor);
-    modeButton->setText("View");
+    modeButton->setText("V");
     disconnect(modeButton, SIGNAL(clicked()), this, SLOT(showEditor()));
     connect(modeButton, SIGNAL(clicked()), this, SLOT(showView()));
     touchEditor();
@@ -244,8 +262,10 @@ void MainWindow::showView()
 {
     saveFile();
     refreshView();
+    fileBar->hide();
+    docBar->show();
     stack->raiseWidget(view);
-    modeButton->setText("Edit");
+    modeButton->setText("E");
     disconnect(modeButton, SIGNAL(clicked()), this, SLOT(showView()));
     connect(modeButton, SIGNAL(clicked()), this, SLOT(showEditor()));
 }
@@ -650,10 +670,10 @@ void MainWindow::autosaveTick()
 
 void MainWindow::applyFontSize()
 {
-    QFont f = editor->font();
-    f.setPointSize(fontSize);
+    QFont f("song", fontSize);
     editor->setFont(f);
     view->setFont(f);
+    browser->setFont(QFont("song", 11));
 }
 
 void MainWindow::applyTheme()
