@@ -175,16 +175,25 @@ void MainWindow::layoutToolButtons()
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
-    if (!currentFile.isEmpty() && editor->edited()) {
-        int answer = QMessageBox::warning(this, "Save", "Save changes?", QMessageBox::Yes, QMessageBox::No, QMessageBox::Cancel);
-        if (answer == QMessageBox::Cancel) {
-            event->ignore();
-            return;
-        }
-        if (answer == QMessageBox::Yes)
-            saveFile();
+    if (!confirmSaveIfNeeded()) {
+        event->ignore();
+        return;
     }
     event->accept();
+}
+
+bool MainWindow::confirmSaveIfNeeded()
+{
+    if (currentFile.isEmpty() || !editor->edited())
+        return true;
+    if (autosaveTimer)
+        autosaveTimer->stop();
+    int answer = QMessageBox::warning(this, "Save", "Save changes?", QMessageBox::Yes, QMessageBox::No, QMessageBox::Cancel);
+    if (answer == QMessageBox::Cancel)
+        return false;
+    if (answer == QMessageBox::Yes)
+        saveFile();
+    return true;
 }
 
 void MainWindow::rebuildToolBar()
@@ -444,8 +453,8 @@ void MainWindow::openFile(const QString &path)
 
 void MainWindow::showBrowser()
 {
-    if (!currentFile.isEmpty())
-        saveFile();
+    if (!confirmSaveIfNeeded())
+        return;
     currentFile = QString::null;
     updateCaption();
     docBar->hide();
@@ -866,8 +875,8 @@ void MainWindow::touchEditor()
 
 void MainWindow::scheduleAutosave()
 {
-    if (autosaveTimer && !currentFile.isEmpty())
-        autosaveTimer->start(2500, true);
+    if (autosaveTimer)
+        autosaveTimer->stop();
 }
 
 void MainWindow::autosaveTick()

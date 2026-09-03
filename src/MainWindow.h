@@ -13,6 +13,8 @@ class QWidgetStack;
 class MdView;
 class QButton;
 class QTimer;
+class QCloseEvent;
+class QResizeEvent;
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -109,6 +111,7 @@ private:
     void setToolLabel(int index, const char *text);
     void runTool(int index);
     void layoutToolButtons();
+    bool confirmSaveIfNeeded();
     void updateCaption();
     void loadDirectory(const QString &path);
     void openFile(const QString &path);
