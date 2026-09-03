@@ -19,6 +19,8 @@ The current milestone is a compact Markor-style Markdown notebook:
 - close prompts to save unsaved edits
 - desktop files install to both Applications and Document with `%f` file
   arguments and Markdown/text MIME declarations
+- package installs `mime.types` entries for `.md`, `.markdown`, `.mkd`, and
+  `.txt`, and declares `application/octet-stream` as a fallback association
 - paged editing toolbar with no scroll bar; `More` rotates the labels/actions
   of fixed buttons instead of destroying widgets at runtime
 - bottom toolbar uses ten fixed 63px buttons to fill the 640px landscape

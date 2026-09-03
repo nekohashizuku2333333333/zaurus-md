@@ -9,6 +9,8 @@ rm -rf "$IPKDIR"
 mkdir -p "$IPKDIR/home/QtPalmtop/bin"
 mkdir -p "$IPKDIR/home/QtPalmtop/apps/Applications"
 mkdir -p "$IPKDIR/home/QtPalmtop/apps/Document"
+mkdir -p "$IPKDIR/home/QtPalmtop/etc"
+mkdir -p "$IPKDIR/home/zaurus/Settings"
 mkdir -p "$IPKDIR/CONTROL"
 
 cp "DIST/$APP" "$IPKDIR/home/QtPalmtop/bin/$APP"
@@ -21,7 +23,7 @@ Exec=$APP %f
 Icon=TextEditor
 Type=Application
 Name=Zaurus MDEditor
-MimeType=text/plain;text/x-markdown;text/markdown
+MimeType=text/plain;text/x-markdown;text/markdown;application/octet-stream
 CanFastload=0
 EOF
 
@@ -32,8 +34,20 @@ Exec=$APP %f
 Icon=TextEditor
 Type=Application
 Name=Zaurus MDEditor
-MimeType=text/plain;text/x-markdown;text/markdown
+MimeType=text/plain;text/x-markdown;text/markdown;application/octet-stream
 CanFastload=0
+EOF
+
+cat > "$IPKDIR/home/QtPalmtop/etc/mime.types" <<EOF
+text/plain txt text
+text/x-markdown md markdown mkd
+text/markdown md markdown mkd
+EOF
+
+cat > "$IPKDIR/home/zaurus/Settings/mime.types" <<EOF
+text/plain txt text
+text/x-markdown md markdown mkd
+text/markdown md markdown mkd
 EOF
 
 cat > "$IPKDIR/CONTROL/control" <<EOF
