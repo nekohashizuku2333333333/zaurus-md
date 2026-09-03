@@ -66,10 +66,10 @@ chmod 755 "$IPKDIR/CONTROL/postinst"
 
 (
 	cd "$IPKDIR"
-	tar czf ../control.tar.gz -C CONTROL ./control ./postinst
-	tar czf ../data.tar.gz ./home
+	tar --owner=0 --group=0 --numeric-owner -czf ../control.tar.gz -C CONTROL ./control ./postinst
+	tar --owner=0 --group=0 --numeric-owner -czf ../data.tar.gz ./home
 )
 printf "2.0\n" > debian-binary
 mkdir -p DIST
-tar czf "DIST/${APP}_${VER}_arm.ipk" ./debian-binary ./control.tar.gz ./data.tar.gz
+tar --owner=0 --group=0 --numeric-owner -czf "DIST/${APP}_${VER}_arm.ipk" ./debian-binary ./control.tar.gz ./data.tar.gz
 rm -f debian-binary control.tar.gz data.tar.gz
