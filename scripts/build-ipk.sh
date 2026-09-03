@@ -23,7 +23,7 @@ Exec=$APP %f
 Icon=TextEditor
 Type=Application
 Name=Zaurus MDEditor
-MimeType=text/plain;text/x-markdown;text/markdown;application/octet-stream
+MimeType=text/plain;text/x-markdown;text/markdown
 CanFastload=0
 EOF
 
@@ -34,7 +34,7 @@ Exec=$APP %f
 Icon=TextEditor
 Type=Application
 Name=Zaurus MDEditor
-MimeType=text/plain;text/x-markdown;text/markdown;application/octet-stream
+MimeType=text/plain;text/x-markdown;text/markdown
 CanFastload=0
 EOF
 
