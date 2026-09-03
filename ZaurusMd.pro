@@ -5,6 +5,7 @@ DESTDIR = DIST
 
 HEADERS = \
     src/MainWindow.h \
+    src/MdEdit.h \
     src/MdView.h \
     src/MdParser.h \
     src/TodoTxt.h \
@@ -20,4 +21,3 @@ SOURCES = \
 
 INCLUDEPATH += $(QPEDIR)/include
 LIBS += -lqpe
-
