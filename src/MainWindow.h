@@ -38,6 +38,9 @@ private slots:
     void toggleTaskCurrent();
     void quoteLine();
     void insertLink();
+    void insertImage();
+    void insertTable();
+    void insertCodeBlock();
     void insertRule();
     void indentLine();
     void outdentLine();
@@ -69,6 +72,8 @@ private slots:
     void filterTodoProject();
     void filterTodoContext();
     void clearTodoFilter();
+    void markSelectedTasksDone();
+    void markSelectedTasksOpen();
     void copyText();
     void cutText();
     void pasteText();

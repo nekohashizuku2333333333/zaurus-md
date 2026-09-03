@@ -24,6 +24,19 @@ QString MdParser::inlineRich(const QString &text)
     QString out;
     uint i = 0;
     while (i < text.length()) {
+        if (i + 1 < text.length() && text[i] == '!' && text[i + 1] == '[') {
+            int close = text.find("](", i + 2);
+            if (close > (int)i) {
+                int end = text.find(')', close + 2);
+                if (end > close) {
+                    QString alt = escape(text.mid(i + 2, close - i - 2));
+                    QString src = escape(text.mid(close + 2, end - close - 2));
+                    out += "<img src=\"" + src + "\" alt=\"" + alt + "\">";
+                    i = end + 1;
+                    continue;
+                }
+            }
+        }
         if (text[i] == '`') {
             int end = text.find('`', i + 1);
             if (end > (int)i) {
@@ -41,6 +54,14 @@ QString MdParser::inlineRich(const QString &text)
                     i = end + 1;
                     continue;
                 }
+            }
+        }
+        if (i + 1 < text.length() && text[i] == '~' && text[i + 1] == '~') {
+            int end = text.find("~~", i + 2);
+            if (end > (int)i) {
+                out += "<strike>" + escape(text.mid(i + 2, end - i - 2)) + "</strike>";
+                i = end + 2;
+                continue;
             }
         }
         if (i + 1 < text.length() && text[i] == '*' && text[i + 1] == '*') {

@@ -13,11 +13,13 @@ The current milestone is a compact Markor-style Markdown notebook:
 - file browser rooted at `/home/zaurus/Documents/Notes`
 - edit/view switch
 - Markdown to Qt rich text conversion with headings, inline strong/emphasis,
-  code, links, quotes, rules, bullet lists, numbered lists, and task links
+  code, links, images, strikeout, quotes, rules, bullet lists, numbered lists,
+  and task links
 - UTF-8 file read/write with atomic save
 - new file, new folder, save, save as, rename, delete, autosave
-- formatting toolbar for bold, italic, code, headings, bullets, numbered lists,
-  tasks, quotes, links, rules, indent/outdent, line move, date/time, undo/redo
+- formatting toolbar for bold, italic, inline code, code blocks, headings,
+  bullets, numbered lists, tasks, quotes, links, images, tables, rules,
+  indent/outdent, line move, date/time, undo/redo
 - multi-line selection handling for line formatting, indentation, task toggles,
   priorities, and line movement
 - copy, cut, paste, select all, and duplicate line/selection block actions
@@ -25,7 +27,7 @@ The current milestone is a compact Markor-style Markdown notebook:
   continuation for lists, tasks, quotes, and numbered lists
 - todo.txt actions for done, priorities, project/context/due tags, sorting,
   hiding completed lines, project/context preview filtering, moving completed
-  lines to the end, and clearing done
+  lines to the end, clearing done, and batch open/done state changes
 - remote build script for the Zaurus SDK host
 
 Syntax highlighting is intentionally left out for now because Qt/E 2.3 text

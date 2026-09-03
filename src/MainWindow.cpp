@@ -105,6 +105,9 @@ void MainWindow::buildUi()
     makeButton(bar, "[ ]", SLOT(toggleTaskCurrent()));
     makeButton(bar, ">", SLOT(quoteLine()));
     makeButton(bar, "Link", SLOT(insertLink()));
+    makeButton(bar, "Img", SLOT(insertImage()));
+    makeButton(bar, "Tbl", SLOT(insertTable()));
+    makeButton(bar, "Code", SLOT(insertCodeBlock()));
     makeButton(bar, "Find", SLOT(findText()));
     makeButton(bar, "Next", SLOT(findNext()));
     makeButton(bar, "R1", SLOT(replaceOne()));
@@ -124,6 +127,8 @@ void MainWindow::buildUi()
     makeButton(bar, "AllSel", SLOT(selectAllText()));
     makeButton(bar, "Dup", SLOT(duplicateLine()));
     makeButton(bar, "Done", SLOT(todoToggleDone()));
+    makeButton(bar, "Chk", SLOT(markSelectedTasksDone()));
+    makeButton(bar, "Open", SLOT(markSelectedTasksOpen()));
     makeButton(bar, "A", SLOT(todoPriorityA()));
     makeButton(bar, "B", SLOT(todoPriorityB()));
     makeButton(bar, "C", SLOT(todoPriorityC()));
@@ -142,8 +147,8 @@ void MainWindow::buildUi()
     makeButton(bar, "Theme", SLOT(toggleTheme()));
     makeButton(bar, "Edit", SLOT(showEditor()));
     makeButton(bar, "View", SLOT(showView()));
-    bar->resize(1380, 28);
-    tools->resizeContents(1380, 28);
+    bar->resize(1520, 28);
+    tools->resizeContents(1520, 28);
     tools->setFixedHeight(44);
 
     autosaveTimer = new QTimer(this);
@@ -746,6 +751,35 @@ void MainWindow::insertLink()
     touchEditor();
 }
 
+void MainWindow::insertImage()
+{
+    bool ok = false;
+    QString path = TextPrompt::getText("Image", "Path", "image.jpg", &ok, this);
+    if (!ok || path.isEmpty())
+        return;
+    QString alt = selectedText();
+    if (alt.isNull())
+        alt = "image";
+    replaceSelectionOrInsert("![" + alt + "](" + path + ")");
+    touchEditor();
+}
+
+void MainWindow::insertTable()
+{
+    QString table = "\n| Name | Value |\n| --- | --- |\n|  |  |\n";
+    replaceSelectionOrInsert(table);
+    touchEditor();
+}
+
+void MainWindow::insertCodeBlock()
+{
+    QString sel = selectedText();
+    if (sel.isNull())
+        sel = "code";
+    replaceSelectionOrInsert("\n```\n" + sel + "\n```\n");
+    touchEditor();
+}
+
 void MainWindow::insertRule()
 {
     replaceSelectionOrInsert("\n---\n");
@@ -1012,6 +1046,48 @@ void MainWindow::todoToggleDone()
         toggleTaskCurrent();
     if (isTodoFile())
         replaceCurrentLine(line);
+    scheduleAutosave();
+}
+
+void MainWindow::markSelectedTasksDone()
+{
+    int first, last;
+    selectedLineRange(&first, &last);
+    for (int row = first; row <= last; ++row) {
+        QString line = editor->textLine(row);
+        int p = line.find("[ ]");
+        if (p >= 0) {
+            line.replace(p, 3, "[x]");
+        } else if (isTodoFile() && line.left(2) != "x ") {
+            line = "x " + QDate::currentDate().toString() + " " + line;
+        }
+        setCurrentLineText(row, line);
+    }
+    editor->setCursorPosition(first, 0);
+    touchEditor();
+    scheduleAutosave();
+}
+
+void MainWindow::markSelectedTasksOpen()
+{
+    int first, last;
+    selectedLineRange(&first, &last);
+    for (int row = first; row <= last; ++row) {
+        QString line = editor->textLine(row);
+        int p = line.find("[x]");
+        if (p < 0)
+            p = line.find("[X]");
+        if (p >= 0) {
+            line.replace(p, 3, "[ ]");
+        } else if (isTodoFile() && line.left(2) == "x ") {
+            line = line.mid(2);
+            if (line.length() >= 11 && line[4] == '-' && line[7] == '-')
+                line = line.mid(11);
+        }
+        setCurrentLineText(row, line);
+    }
+    editor->setCursorPosition(first, 0);
+    touchEditor();
     scheduleAutosave();
 }
 
