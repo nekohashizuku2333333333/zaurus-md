@@ -6,14 +6,14 @@ VER=0.1
 IPKDIR=IPK
 
 rm -rf "$IPKDIR"
-mkdir -p "$IPKDIR/opt/QtPalmtop/bin"
-mkdir -p "$IPKDIR/opt/QtPalmtop/apps/Applications"
+mkdir -p "$IPKDIR/home/QtPalmtop/bin"
+mkdir -p "$IPKDIR/home/QtPalmtop/apps/Applications"
 mkdir -p "$IPKDIR/CONTROL"
 
-cp "DIST/$APP" "$IPKDIR/opt/QtPalmtop/bin/$APP"
-chmod 755 "$IPKDIR/opt/QtPalmtop/bin/$APP"
+cp "DIST/$APP" "$IPKDIR/home/QtPalmtop/bin/$APP"
+chmod 755 "$IPKDIR/home/QtPalmtop/bin/$APP"
 
-cat > "$IPKDIR/opt/QtPalmtop/apps/Applications/$APP.desktop" <<EOF
+cat > "$IPKDIR/home/QtPalmtop/apps/Applications/$APP.desktop" <<EOF
 [Desktop Entry]
 Comment=Markdown writer and reader
 Exec=$APP
@@ -36,10 +36,9 @@ EOF
 (
 	cd "$IPKDIR"
 	tar czf ../control.tar.gz -C CONTROL ./control
-	tar czf ../data.tar.gz ./opt
+	tar czf ../data.tar.gz ./home
 )
 printf "2.0\n" > debian-binary
 mkdir -p DIST
 tar czf "DIST/${APP}_${VER}_arm.ipk" ./debian-binary ./control.tar.gz ./data.tar.gz
 rm -f debian-binary control.tar.gz data.tar.gz
-
