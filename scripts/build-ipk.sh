@@ -2,7 +2,7 @@
 set -eu
 
 APP=zaurusmd
-VER=0.3
+VER=0.4
 IPKDIR=IPK
 
 sh scripts/build-repair.sh
@@ -26,7 +26,7 @@ Exec=$APP
 Icon=TextEditor
 Type=Application
 Name=Zaurus MDEditor
-MimeType=text/x-markdown;text/markdown
+MimeType=text/markdown;text/x-markdown
 CanFastload=0
 EOF
 
@@ -37,7 +37,7 @@ Exec=$APP
 Icon=TextEditor
 Type=Application
 Name=Zaurus MDEditor
-MimeType=text/x-markdown;text/markdown
+MimeType=text/markdown;text/x-markdown
 CanFastload=0
 EOF
 

@@ -120,7 +120,9 @@ private:
     void updateCaption();
     void updateSaveIndicator();
     void loadDirectory(const QString &path);
+    void addLocationItem(const QString &name, const QString &path);
     void openFile(const QString &path);
+    bool isEditableFileName(const QString &name) const;
     void refreshView();
     QString selectedText() const;
     void replaceSelectionOrInsert(const QString &text);

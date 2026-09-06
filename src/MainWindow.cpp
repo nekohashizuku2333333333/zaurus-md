@@ -83,6 +83,8 @@ void MainWindow::buildUi()
     browser = new QListView(stack);
     browser->addColumn("Name");
     browser->addColumn("Modified");
+    browser->addColumn("Path");
+    browser->setColumnWidth(2, 0);
     connect(browser, SIGNAL(doubleClicked(QListViewItem *)), this, SLOT(openSelected(QListViewItem *)));
 
     editor = new MdEdit(stack);
@@ -153,11 +155,11 @@ void MainWindow::openInitialFile(const QString &path)
     QFileInfo info(path);
     if (info.isDir()) {
         QString abs = info.absFilePath();
-        if (abs.left(notesDir.length()) == notesDir)
+        if (QFileInfo(abs).isReadable())
             loadDirectory(abs);
         return;
     }
-    if (info.fileName().right(3) == ".md" || info.fileName().right(4) == ".txt")
+    if (isEditableFileName(info.fileName()))
         openFile(info.absFilePath());
 }
 
@@ -424,23 +426,31 @@ QPushButton *MainWindow::makeTopButton(QWidget *parent, const char *text, const 
 
 void MainWindow::loadDirectory(const QString &path)
 {
-    currentDir = path;
+    currentDir = QDir(path).absPath();
     if (stack && stack->visibleWidget() == browser)
         currentFile = QString::null;
     updateCaption();
     browser->clear();
-    if (path != notesDir)
+    if (currentDir == "/") {
+        addLocationItem("Documents", "/home/zaurus/Documents");
+        addLocationItem("Notes", notesDir);
+        addLocationItem("CF Card", "/mnt/cf");
+        addLocationItem("SD Card", "/mnt/card");
+        addLocationItem("SD Card", "/mnt/sd");
+        addLocationItem("Home", "/home/zaurus");
+    }
+    if (currentDir != "/")
         new QListViewItem(browser, "..", "");
-    if (path == notesDir) {
-        QString quick = path + "/QuickNote.md";
-        QString todo = path + "/todo.txt";
+    if (currentDir == notesDir) {
+        QString quick = currentDir + "/QuickNote.md";
+        QString todo = currentDir + "/todo.txt";
         if (!QFileInfo(quick).exists())
             FileUtil::writeUtf8Atomic(quick, "# QuickNote\n\n");
         if (!QFileInfo(todo).exists())
             FileUtil::writeUtf8Atomic(todo, "");
     }
 
-    QDir dir(path);
+    QDir dir(currentDir);
     dir.setFilter(QDir::Dirs | QDir::Files | QDir::NoSymLinks);
     dir.setSorting(QDir::DirsFirst | QDir::Name);
     const QFileInfoList *infos = dir.entryInfoList();
@@ -453,21 +463,33 @@ void MainWindow::loadDirectory(const QString &path)
         QString name = fi->fileName();
         if (name == "." || name == "..")
             continue;
-        if (fi->isFile() && !(name.right(3) == ".md" || name.right(4) == ".txt"))
+        if (fi->isFile() && !isEditableFileName(name))
             continue;
-        new QListViewItem(browser, name, fi->lastModified().toString());
+        QListViewItem *entry = new QListViewItem(browser, name, fi->lastModified().toString());
+        entry->setText(2, fi->absFilePath());
     }
+}
+
+void MainWindow::addLocationItem(const QString &name, const QString &path)
+{
+    QFileInfo info(path);
+    if (!info.exists() || !info.isDir() || !info.isReadable())
+        return;
+    QListViewItem *entry = new QListViewItem(browser, name, path);
+    entry->setText(2, info.absFilePath());
 }
 
 void MainWindow::openSelected(QListViewItem *item)
 {
     if (!item)
         return;
-    QString path = currentDir + "/" + item->text(0);
     if (item->text(0) == "..") {
         goUp();
         return;
     }
+    QString path = item->text(2);
+    if (path.isEmpty())
+        path = currentDir + "/" + item->text(0);
     QFileInfo fi(path);
     if (fi.isDir()) {
         loadDirectory(path);
@@ -487,6 +509,16 @@ void MainWindow::openFile(const QString &path)
     editor->setEdited(false);
     updateCaption();
     showEditor();
+}
+
+bool MainWindow::isEditableFileName(const QString &name) const
+{
+    QString lower = name.lower();
+    return lower.right(3) == ".md"
+        || lower.right(4) == ".txt"
+        || lower.right(5) == ".mkd"
+        || lower.right(5) == ".text"
+        || lower.right(9) == ".markdown";
 }
 
 void MainWindow::showBrowser()
@@ -568,7 +600,7 @@ void MainWindow::newFile()
     QString name = TextPrompt::getText("New file", "Name", "note.md", &ok, this);
     if (!ok || name.isEmpty())
         return;
-    if (!(name.right(3) == ".md" || name.right(4) == ".txt"))
+    if (!isEditableFileName(name))
         name += ".md";
     QString path = currentDir + "/" + name;
     if (QFileInfo(path).exists()) {
@@ -606,13 +638,11 @@ void MainWindow::goUp()
         showBrowser();
         return;
     }
-    if (currentDir == notesDir)
+    if (currentDir == "/")
         return;
     QDir d(currentDir);
     d.cdUp();
     QString next = d.absPath();
-    if (next.left(notesDir.length()) != notesDir)
-        next = notesDir;
     loadDirectory(next);
 }
 
@@ -623,6 +653,8 @@ QString MainWindow::currentSelectedPath() const
         return QString::null;
     if (item->text(0) == "..")
         return QString::null;
+    if (!item->text(2).isEmpty())
+        return item->text(2);
     return currentDir + "/" + item->text(0);
 }
 
@@ -634,7 +666,7 @@ void MainWindow::saveAsFile()
     QString name = TextPrompt::getText("Save as", "Name", QFileInfo(currentFile).fileName(), &ok, this);
     if (!ok || name.isEmpty())
         return;
-    if (!(name.right(3) == ".md" || name.right(4) == ".txt"))
+    if (!isEditableFileName(name))
         name += ".md";
     QString path = currentDir + "/" + name;
     if (QFileInfo(path).exists()) {

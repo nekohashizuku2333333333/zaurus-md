@@ -259,7 +259,7 @@ add_markdown()
     done
     if [ -n "$extensions" ]; then
         cat "$target" > "$target.zaurusmd-tmp.$$"
-        printf '# BEGIN zaurusmd MIME\ntext/x-markdown%s\n# END zaurusmd MIME\n' "$extensions" >> "$target.zaurusmd-tmp.$$"
+        printf '# BEGIN zaurusmd MIME\ntext/markdown%s\n# END zaurusmd MIME\n' "$extensions" >> "$target.zaurusmd-tmp.$$"
         commit_file "$target" "$target.zaurusmd-tmp.$$"
     fi
 }
