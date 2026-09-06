@@ -86,9 +86,35 @@ static QString serializeEntry(const TodoMdEntry &e)
     return out;
 }
 
+static void renumberTasks(TodoMdDoc *doc)
+{
+    int task = -1;
+    for (int i = 0; i < (int)doc->entries.count(); ++i) {
+        TodoMdEntry e = doc->entries[i];
+        if (e.kind == TodoMdEntry::Task)
+            ++task;
+        if (e.kind == TodoMdEntry::Task || e.kind == TodoMdEntry::Step || e.kind == TodoMdEntry::Note)
+            e.task = task;
+        doc->entries[i] = e;
+    }
+}
+
+static int taskBlockEnd(const TodoMdDoc &doc, int start)
+{
+    int end = start + 1;
+    while (end < (int)doc.entries.count() && doc.entries[end].kind != TodoMdEntry::Task)
+        ++end;
+    return end;
+}
+
 TodoMdDoc TodoMd::parseTodo(const QString &text, const QString &today)
 {
     TodoMdDoc doc;
+    if (text.isEmpty()) {
+        doc.newline = "\n";
+        doc.trailingNewline = false;
+        return doc;
+    }
     doc.newline = text.find("\r\n") >= 0 ? "\r\n" : "\n";
     doc.trailingNewline = text.right(doc.newline.length()) == doc.newline;
     QString body = text;
@@ -139,11 +165,13 @@ TodoMdDoc TodoMd::parseTodo(const QString &text, const QString &today)
 
 QString TodoMd::serializeTodo(const TodoMdDoc &doc)
 {
+    if (doc.entries.count() == 0)
+        return "";
     QStringList lines;
     for (int i = 0; i < (int)doc.entries.count(); ++i)
         lines.append(serializeEntry(doc.entries[i]));
     QString out = lines.join(doc.newline);
-    if (doc.trailingNewline || doc.entries.count() == 0)
+    if (doc.trailingNewline)
         out += doc.newline;
     return out;
 }
@@ -202,6 +230,26 @@ void TodoMd::toggleImportant(TodoMdDoc *doc, int task)
     doc->entries[i] = e;
 }
 
+void TodoMd::setDue(TodoMdDoc *doc, int task, const QString &date)
+{
+    int i = entryForTask(*doc, task);
+    if (i < 0)
+        return;
+    TodoMdEntry e = doc->entries[i];
+    e.due = date;
+    doc->entries[i] = e;
+}
+
+void TodoMd::toggleMyDay(TodoMdDoc *doc, int task, const QString &today)
+{
+    int i = entryForTask(*doc, task);
+    if (i < 0)
+        return;
+    TodoMdEntry e = doc->entries[i];
+    e.myday = e.myday == today ? QString::null : today;
+    doc->entries[i] = e;
+}
+
 void TodoMd::addTask(TodoMdDoc *doc, const QString &title, bool myday, const QString &today)
 {
     TodoMdEntry e;
@@ -239,6 +287,21 @@ void TodoMd::addStep(TodoMdDoc *doc, int task, const QString &title)
     doc->trailingNewline = true;
 }
 
+void TodoMd::deleteStep(TodoMdDoc *doc, int task, int step)
+{
+    int seen = 0;
+    QValueList<TodoMdEntry> kept;
+    for (int i = 0; i < (int)doc->entries.count(); ++i) {
+        TodoMdEntry e = doc->entries[i];
+        if (e.kind == TodoMdEntry::Step && e.task == task) {
+            if (seen++ == step)
+                continue;
+        }
+        kept.append(e);
+    }
+    doc->entries = kept;
+}
+
 void TodoMd::deleteTask(TodoMdDoc *doc, int task)
 {
     QValueList<TodoMdEntry> kept;
@@ -246,4 +309,64 @@ void TodoMd::deleteTask(TodoMdDoc *doc, int task)
         if (doc->entries[i].task != task)
             kept.append(doc->entries[i]);
     doc->entries = kept;
+    renumberTasks(doc);
+}
+
+void TodoMd::moveTask(TodoMdDoc *doc, int task, int delta)
+{
+    if (!doc || delta == 0)
+        return;
+    int from = entryForTask(*doc, task);
+    int other = entryForTask(*doc, task + delta);
+    if (from < 0 || other < 0)
+        return;
+    int a = from < other ? from : other;
+    int b = from < other ? other : from;
+    int aEnd = taskBlockEnd(*doc, a);
+    int bEnd = taskBlockEnd(*doc, b);
+    QValueList<TodoMdEntry> next;
+    for (int i = 0; i < a; ++i)
+        next.append(doc->entries[i]);
+    for (int i = b; i < bEnd; ++i)
+        next.append(doc->entries[i]);
+    for (int i = aEnd; i < b; ++i)
+        next.append(doc->entries[i]);
+    for (int i = a; i < aEnd; ++i)
+        next.append(doc->entries[i]);
+    for (int i = bEnd; i < (int)doc->entries.count(); ++i)
+        next.append(doc->entries[i]);
+    doc->entries = next;
+    renumberTasks(doc);
+}
+
+void TodoMd::demoteTaskToStep(TodoMdDoc *doc, int task)
+{
+    if (task <= 0)
+        return;
+    int i = entryForTask(*doc, task);
+    if (i < 0)
+        return;
+    TodoMdEntry e = doc->entries[i];
+    e.kind = TodoMdEntry::Step;
+    e.task = task - 1;
+    e.doneDate = QString::null;
+    doc->entries[i] = e;
+    renumberTasks(doc);
+}
+
+void TodoMd::promoteStepToTask(TodoMdDoc *doc, int task, int step)
+{
+    int seen = 0;
+    for (int i = 0; i < (int)doc->entries.count(); ++i) {
+        TodoMdEntry e = doc->entries[i];
+        if (e.kind == TodoMdEntry::Step && e.task == task) {
+            if (seen++ == step) {
+                e.kind = TodoMdEntry::Task;
+                e.task = task + 1;
+                doc->entries[i] = e;
+                renumberTasks(doc);
+                return;
+            }
+        }
+    }
 }

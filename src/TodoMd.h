@@ -32,9 +32,15 @@ public:
     static void setTaskDone(TodoMdDoc *doc, int task, bool done, const QString &today);
     static void setStepDone(TodoMdDoc *doc, int task, int step, bool done);
     static void toggleImportant(TodoMdDoc *doc, int task);
+    static void setDue(TodoMdDoc *doc, int task, const QString &date);
+    static void toggleMyDay(TodoMdDoc *doc, int task, const QString &today);
     static void addTask(TodoMdDoc *doc, const QString &title, bool myday, const QString &today);
     static void addStep(TodoMdDoc *doc, int task, const QString &title);
+    static void deleteStep(TodoMdDoc *doc, int task, int step);
     static void deleteTask(TodoMdDoc *doc, int task);
+    static void moveTask(TodoMdDoc *doc, int task, int delta);
+    static void demoteTaskToStep(TodoMdDoc *doc, int task);
+    static void promoteStepToTask(TodoMdDoc *doc, int task, int step);
 };
 
 #endif

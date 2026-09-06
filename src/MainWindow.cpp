@@ -298,15 +298,27 @@ bool MainWindow::confirmSaveIfNeeded()
 void MainWindow::rebuildToolBar()
 {
     if (todoPane && stack && stack->visibleWidget() == todoPane) {
-        setToolButton(0, 0, "Day");
-        setToolButton(1, 0, "!");
-        setToolButton(2, 0, "Due");
-        setToolButton(3, 0, "All");
-        setToolButton(4, 0, "!*");
-        setToolButton(5, 0, "+Sub");
-        setToolButton(6, "editdelete", "Del");
-        setToolButton(7, "TextEditor", "Edit");
-        setToolButton(8, "Save", "Save");
+        if (toolPage == 0) {
+            setToolButton(0, 0, "Day");
+            setToolButton(1, 0, "!");
+            setToolButton(2, 0, "Due");
+            setToolButton(3, 0, "All");
+            setToolButton(4, 0, "!*");
+            setToolButton(5, 0, "+Sub");
+            setToolButton(6, "editdelete", "Del");
+            setToolButton(7, "TextEditor", "Edit");
+            setToolButton(8, "Save", "Save");
+        } else {
+            setToolButton(0, "up", "Up");
+            setToolButton(1, "down", "Down");
+            setToolButton(2, 0, "MyDay");
+            setToolButton(3, 0, "Due");
+            setToolButton(4, 0, "+Sub");
+            setToolButton(5, "TextEditor", "Edit");
+            setToolButton(6, "TextEditor", "View");
+            setToolButton(7, "Save", "Save");
+            setToolButton(8, 0, "All");
+        }
         setToolButton(9, "forward", "More");
         return;
     }
@@ -425,21 +437,34 @@ void MainWindow::nextToolPage()
 
 void MainWindow::runTool(int index)
 {
-    if (index == 9) {
-        nextToolPage();
+    if (todoPane && stack && stack->visibleWidget() == todoPane) {
+        if (index == 9) nextToolPage();
+        else if (toolPage == 0) {
+            if (index == 0) todoViewMode = 0;
+            else if (index == 1) todoViewMode = 1;
+            else if (index == 2) todoViewMode = 2;
+            else if (index == 3) todoViewMode = 3;
+            else if (index == 4) toggleTodoImportant();
+            else if (index == 5) addTodoStep();
+            else if (index == 6) deleteTodoCurrent();
+            else if (index == 7) showEditor();
+            else if (index == 8) saveFile();
+        } else {
+            if (index == 0) moveTodoUp();
+            else if (index == 1) moveTodoDown();
+            else if (index == 2) toggleTodoMyDay();
+            else if (index == 3) setTodoDue();
+            else if (index == 4) addTodoStep();
+            else if (index == 5) showEditor();
+            else if (index == 6) showView();
+            else if (index == 7) saveFile();
+            else if (index == 8) todoViewMode = 3;
+        }
+        refreshTodo();
         return;
     }
-    if (todoPane && stack && stack->visibleWidget() == todoPane) {
-        if (index == 0) todoViewMode = 0;
-        else if (index == 1) todoViewMode = 1;
-        else if (index == 2) todoViewMode = 2;
-        else if (index == 3) todoViewMode = 3;
-        else if (index == 4) toggleTodoImportant();
-        else if (index == 5) addTodoStep();
-        else if (index == 6) deleteTodoCurrent();
-        else if (index == 7) showEditor();
-        else if (index == 8) saveFile();
-        refreshTodo();
+    if (index == 9) {
+        nextToolPage();
         return;
     }
 
@@ -819,6 +844,7 @@ void MainWindow::showTodo()
     refreshTodo();
     fileBar->hide();
     docBar->show();
+    toolPage = 0;
     if (splitView)
         splitView->hide();
     stack->raiseWidget(todoPane);
@@ -945,6 +971,62 @@ void MainWindow::toggleTodoImportant()
     QString today = todayIsoDate();
     TodoMdDoc doc = TodoMd::parseTodo(editor->text(), today);
     TodoMd::toggleImportant(&doc, item->taskIndex);
+    editor->setText(TodoMd::serializeTodo(doc));
+    saveTodoDoc();
+}
+
+void MainWindow::toggleTodoMyDay()
+{
+    QListViewItem *raw = todoList->currentItem();
+    if (!raw || raw->text(2) != "task")
+        return;
+    TodoListItem *item = (TodoListItem *)raw;
+    QString today = todayIsoDate();
+    TodoMdDoc doc = TodoMd::parseTodo(editor->text(), today);
+    TodoMd::toggleMyDay(&doc, item->taskIndex, today);
+    editor->setText(TodoMd::serializeTodo(doc));
+    saveTodoDoc();
+}
+
+void MainWindow::setTodoDue()
+{
+    QListViewItem *raw = todoList->currentItem();
+    if (!raw || raw->text(2) != "task")
+        return;
+    TodoListItem *item = (TodoListItem *)raw;
+    bool ok = false;
+    QString today = todayIsoDate();
+    QString date = TextPrompt::getText("Due", "YYYY-MM-DD", today, &ok, this);
+    if (!ok)
+        return;
+    TodoMdDoc doc = TodoMd::parseTodo(editor->text(), today);
+    TodoMd::setDue(&doc, item->taskIndex, date.stripWhiteSpace());
+    editor->setText(TodoMd::serializeTodo(doc));
+    saveTodoDoc();
+}
+
+void MainWindow::moveTodoUp()
+{
+    QListViewItem *raw = todoList->currentItem();
+    if (!raw || raw->text(2) != "task")
+        return;
+    TodoListItem *item = (TodoListItem *)raw;
+    QString today = todayIsoDate();
+    TodoMdDoc doc = TodoMd::parseTodo(editor->text(), today);
+    TodoMd::moveTask(&doc, item->taskIndex, -1);
+    editor->setText(TodoMd::serializeTodo(doc));
+    saveTodoDoc();
+}
+
+void MainWindow::moveTodoDown()
+{
+    QListViewItem *raw = todoList->currentItem();
+    if (!raw || raw->text(2) != "task")
+        return;
+    TodoListItem *item = (TodoListItem *)raw;
+    QString today = todayIsoDate();
+    TodoMdDoc doc = TodoMd::parseTodo(editor->text(), today);
+    TodoMd::moveTask(&doc, item->taskIndex, 1);
     editor->setText(TodoMd::serializeTodo(doc));
     saveTodoDoc();
 }

@@ -43,6 +43,10 @@ private slots:
     void showTodo();
     void addTodoFromInput();
     void toggleTodoImportant();
+    void toggleTodoMyDay();
+    void setTodoDue();
+    void moveTodoUp();
+    void moveTodoDown();
     void deleteTodoCurrent();
     void addTodoStep();
     void todoItemClicked(QListViewItem *item);
