@@ -246,6 +246,44 @@ void MainWindow::resizeEvent(QResizeEvent *event)
     layoutToolButtons();
 }
 
+void MainWindow::keyPressEvent(QKeyEvent *event)
+{
+    if (event && todoPane && stack && stack->visibleWidget() == todoPane) {
+        if ((event->state() & ControlButton) && event->key() == Key_N) {
+            if (event->state() & ShiftButton)
+                addTodoStep();
+            else
+                todoAdd->setFocus();
+            return;
+        }
+        if (event->key() == Key_Space) {
+            QListViewItem *item = todoList->currentItem();
+            if (item && (item->text(2) == "task" || item->text(2) == "step")) {
+                TodoListItem *todo = (TodoListItem *)item;
+                todo->setOn(!todo->isOn());
+                todoItemClicked(item);
+            }
+            return;
+        }
+        if (event->key() == Key_Return || event->key() == Key_Enter) {
+            editTodoCurrent();
+            return;
+        }
+        if (event->key() == Key_Delete) {
+            deleteTodoCurrent();
+            return;
+        }
+        if (event->key() == Key_Tab) {
+            if (event->state() & ShiftButton)
+                promoteTodoCurrent();
+            else
+                demoteTodoCurrent();
+            return;
+        }
+    }
+    QMainWindow::keyPressEvent(event);
+}
+
 void MainWindow::layoutTopBars()
 {
     if (saveIndicator) {
@@ -313,9 +351,9 @@ void MainWindow::rebuildToolBar()
             setToolButton(1, "down", "Down");
             setToolButton(2, 0, "MyDay");
             setToolButton(3, 0, "Due");
-            setToolButton(4, 0, "+Sub");
-            setToolButton(5, "TextEditor", "Edit");
-            setToolButton(6, "TextEditor", "View");
+            setToolButton(4, "edit", "Title");
+            setToolButton(5, 0, "Tab");
+            setToolButton(6, 0, "S-Tab");
             setToolButton(7, "Save", "Save");
             setToolButton(8, 0, "All");
         }
@@ -454,9 +492,9 @@ void MainWindow::runTool(int index)
             else if (index == 1) moveTodoDown();
             else if (index == 2) toggleTodoMyDay();
             else if (index == 3) setTodoDue();
-            else if (index == 4) addTodoStep();
-            else if (index == 5) showEditor();
-            else if (index == 6) showView();
+            else if (index == 4) editTodoCurrent();
+            else if (index == 5) demoteTodoCurrent();
+            else if (index == 6) promoteTodoCurrent();
             else if (index == 7) saveFile();
             else if (index == 8) todoViewMode = 3;
         }
@@ -1031,6 +1069,52 @@ void MainWindow::moveTodoDown()
     saveTodoDoc();
 }
 
+void MainWindow::editTodoCurrent()
+{
+    QListViewItem *raw = todoList->currentItem();
+    if (!raw || (raw->text(2) != "task" && raw->text(2) != "step"))
+        return;
+    TodoListItem *item = (TodoListItem *)raw;
+    bool ok = false;
+    QString title = TextPrompt::getText("Title", "Title", item->text(0), &ok, this);
+    if (!ok || title.stripWhiteSpace().isEmpty())
+        return;
+    QString today = todayIsoDate();
+    TodoMdDoc doc = TodoMd::parseTodo(editor->text(), today);
+    if (item->isStep)
+        TodoMd::setStepTitle(&doc, item->taskIndex, item->stepIndex, title.stripWhiteSpace());
+    else
+        TodoMd::setTaskTitle(&doc, item->taskIndex, title.stripWhiteSpace());
+    editor->setText(TodoMd::serializeTodo(doc));
+    saveTodoDoc();
+}
+
+void MainWindow::demoteTodoCurrent()
+{
+    QListViewItem *raw = todoList->currentItem();
+    if (!raw || raw->text(2) != "task")
+        return;
+    TodoListItem *item = (TodoListItem *)raw;
+    QString today = todayIsoDate();
+    TodoMdDoc doc = TodoMd::parseTodo(editor->text(), today);
+    TodoMd::demoteTaskToStep(&doc, item->taskIndex);
+    editor->setText(TodoMd::serializeTodo(doc));
+    saveTodoDoc();
+}
+
+void MainWindow::promoteTodoCurrent()
+{
+    QListViewItem *raw = todoList->currentItem();
+    if (!raw || raw->text(2) != "step")
+        return;
+    TodoListItem *item = (TodoListItem *)raw;
+    QString today = todayIsoDate();
+    TodoMdDoc doc = TodoMd::parseTodo(editor->text(), today);
+    TodoMd::promoteStepToTask(&doc, item->taskIndex, item->stepIndex);
+    editor->setText(TodoMd::serializeTodo(doc));
+    saveTodoDoc();
+}
+
 void MainWindow::addTodoStep()
 {
     QListViewItem *raw = todoList->currentItem();
@@ -1051,14 +1135,17 @@ void MainWindow::addTodoStep()
 void MainWindow::deleteTodoCurrent()
 {
     QListViewItem *raw = todoList->currentItem();
-    if (!raw || raw->text(2) != "task")
+    if (!raw || (raw->text(2) != "task" && raw->text(2) != "step"))
         return;
     TodoListItem *item = (TodoListItem *)raw;
-    if (QMessageBox::warning(this, "Delete", "Delete selected task?", QMessageBox::Yes, QMessageBox::No) != QMessageBox::Yes)
+    if (QMessageBox::warning(this, "Delete", item->isStep ? "Delete selected step?" : "Delete selected task?", QMessageBox::Yes, QMessageBox::No) != QMessageBox::Yes)
         return;
     QString today = todayIsoDate();
     TodoMdDoc doc = TodoMd::parseTodo(editor->text(), today);
-    TodoMd::deleteTask(&doc, item->taskIndex);
+    if (item->isStep)
+        TodoMd::deleteStep(&doc, item->taskIndex, item->stepIndex);
+    else
+        TodoMd::deleteTask(&doc, item->taskIndex);
     editor->setText(TodoMd::serializeTodo(doc));
     saveTodoDoc();
 }

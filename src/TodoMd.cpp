@@ -220,6 +220,31 @@ void TodoMd::setStepDone(TodoMdDoc *doc, int task, int step, bool done)
     }
 }
 
+void TodoMd::setTaskTitle(TodoMdDoc *doc, int task, const QString &title)
+{
+    int i = entryForTask(*doc, task);
+    if (i < 0)
+        return;
+    TodoMdEntry e = doc->entries[i];
+    e.title = title;
+    doc->entries[i] = e;
+}
+
+void TodoMd::setStepTitle(TodoMdDoc *doc, int task, int step, const QString &title)
+{
+    int seen = 0;
+    for (int i = 0; i < (int)doc->entries.count(); ++i) {
+        if (doc->entries[i].kind == TodoMdEntry::Step && doc->entries[i].task == task) {
+            if (seen++ == step) {
+                TodoMdEntry e = doc->entries[i];
+                e.title = title;
+                doc->entries[i] = e;
+                return;
+            }
+        }
+    }
+}
+
 void TodoMd::toggleImportant(TodoMdDoc *doc, int task)
 {
     int i = entryForTask(*doc, task);

@@ -31,6 +31,8 @@ public:
     static int entryForTask(const TodoMdDoc &doc, int task);
     static void setTaskDone(TodoMdDoc *doc, int task, bool done, const QString &today);
     static void setStepDone(TodoMdDoc *doc, int task, int step, bool done);
+    static void setTaskTitle(TodoMdDoc *doc, int task, const QString &title);
+    static void setStepTitle(TodoMdDoc *doc, int task, int step, const QString &title);
     static void toggleImportant(TodoMdDoc *doc, int task);
     static void setDue(TodoMdDoc *doc, int task, const QString &date);
     static void toggleMyDay(TodoMdDoc *doc, int task, const QString &today);

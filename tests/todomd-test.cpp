@@ -74,6 +74,18 @@ static void golden()
     eq("important", TodoMd::serializeTodo(doc), "- [ ] a\n  - [x] s\n  note\n- [ ] b !\n");
     TodoMd::moveTask(&doc, 1, -1);
     eq("move up", TodoMd::serializeTodo(doc), "- [ ] b !\n- [ ] a\n  - [x] s\n  note\n");
+    TodoMd::setTaskTitle(&doc, 0, "bb");
+    TodoMd::setDue(&doc, 0, "2026-10-01");
+    TodoMd::toggleMyDay(&doc, 0, today);
+    eq("edit metadata", TodoMd::serializeTodo(doc), "- [ ] bb ! due:2026-10-01 myday:2026-09-06\n- [ ] a\n  - [x] s\n  note\n");
+    TodoMd::toggleMyDay(&doc, 0, today);
+    eq("myday toggle off", TodoMd::serializeTodo(doc), "- [ ] bb ! due:2026-10-01\n- [ ] a\n  - [x] s\n  note\n");
+    TodoMd::demoteTaskToStep(&doc, 1);
+    eq("demote", TodoMd::serializeTodo(doc), "- [ ] bb ! due:2026-10-01\n  - [ ] a\n  - [x] s\n  note\n");
+    TodoMd::promoteStepToTask(&doc, 0, 0);
+    eq("promote", TodoMd::serializeTodo(doc), "- [ ] bb ! due:2026-10-01\n- [ ] a\n  - [x] s\n  note\n");
+    TodoMd::deleteStep(&doc, 1, 0);
+    eq("delete step", TodoMd::serializeTodo(doc), "- [ ] bb ! due:2026-10-01\n- [ ] a\n  note\n");
 }
 
 static void fuzz()
@@ -97,6 +109,9 @@ static void fuzz()
                 TodoMd::setTaskDone(&doc, task, false, today);
                 TodoMdDoc reparsed = TodoMd::parseTodo(TodoMd::serializeTodo(doc), today);
                 assert(TodoMd::taskCount(reparsed) == tasks);
+                TodoMd::toggleMyDay(&doc, task, today);
+                TodoMd::toggleMyDay(&doc, task, today);
+                TodoMd::setDue(&doc, task, "2027-01-02");
                 TodoMd::moveTask(&doc, task, -1);
                 TodoMd::moveTask(&doc, task - 1, 1);
                 (void)before;

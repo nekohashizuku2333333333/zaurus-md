@@ -18,6 +18,7 @@ class QLabel;
 class QLineEdit;
 class QCloseEvent;
 class QResizeEvent;
+class QKeyEvent;
 class DocLnk;
 class FileSelector;
 
@@ -33,6 +34,7 @@ public slots:
 protected:
     void closeEvent(QCloseEvent *event);
     void resizeEvent(QResizeEvent *event);
+    void keyPressEvent(QKeyEvent *event);
 
 private slots:
     void openSelected(QListViewItem *item);
@@ -47,6 +49,9 @@ private slots:
     void setTodoDue();
     void moveTodoUp();
     void moveTodoDown();
+    void editTodoCurrent();
+    void demoteTodoCurrent();
+    void promoteTodoCurrent();
     void deleteTodoCurrent();
     void addTodoStep();
     void todoItemClicked(QListViewItem *item);
