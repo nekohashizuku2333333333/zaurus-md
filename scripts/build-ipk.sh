@@ -2,7 +2,7 @@
 set -eu
 
 APP=zaurusmd
-VER=0.2
+VER=0.3
 IPKDIR=IPK
 
 sh scripts/build-repair.sh
@@ -22,7 +22,7 @@ chmod 755 "$IPKDIR/home/QtPalmtop/bin/restore-file-associations"
 cat > "$IPKDIR/home/QtPalmtop/apps/Applications/$APP.desktop" <<EOF
 [Desktop Entry]
 Comment=Markdown writer and reader
-Exec=$APP %f
+Exec=$APP
 Icon=TextEditor
 Type=Application
 Name=Zaurus MDEditor
@@ -33,7 +33,7 @@ EOF
 cat > "$IPKDIR/home/QtPalmtop/apps/Document/$APP.desktop" <<EOF
 [Desktop Entry]
 Comment=Open Markdown and text files
-Exec=$APP %f
+Exec=$APP
 Icon=TextEditor
 Type=Application
 Name=Zaurus MDEditor

@@ -8,7 +8,7 @@ import tempfile
 
 repo = Path(__file__).resolve().parents[1]
 repair = repo / "DIST/restore-ipk-association.sh"
-package = repo / "DIST/zaurusmd_0.2_arm.ipk"
+package = repo / "DIST/zaurusmd_0.3_arm.ipk"
 checks = 0
 
 
@@ -102,6 +102,7 @@ with tempfile.TemporaryDirectory(prefix="zaurus-association-test-") as directory
     write(qt / "apps/Settings/qipkg.desktop", "[Desktop Entry]\nExec = qipkg\nMimeType=application/ipkg\n")
     run(repair, root)
     assert_restored(root)
+    check(not (qt / "apps/Applications/zaurusmd.desktop").exists(), "repair without editor does not create a dead launcher")
     check(not (qt / "apps/Settings/qipkg.desktop").exists(), "incompatible qipkg launcher disabled")
     check((qt / "apps/Settings/qipkg.desktop.zaurusmd.disabled").exists(), "disabled launcher kept as backup")
     check((qt / "etc/mime.types.zaurusmd-before-ipk-fix").read_bytes() == original_mime, "original MIME backed up")
@@ -114,6 +115,13 @@ with tempfile.TemporaryDirectory(prefix="zaurus-association-test-") as directory
 
     extract(root, hooks)
     run(hooks / "postinst", root, "configure")
+    for category in ("Applications", "Document"):
+        entry = qt / f"apps/{category}/zaurusmd.desktop"
+        check("Exec=zaurusmd\n" in entry.read_text(), "Qtopia executable has no literal %f argument")
+        check(set(entry.read_text().split("MimeType=", 1)[1].splitlines()[0].split(";")) == {"text/markdown", "text/x-markdown"}, "both Markdown MIME aliases registered")
+        entry.unlink()
+    run(repair, root)
+    check(all((qt / f"apps/{category}/zaurusmd.desktop").exists() for category in ("Applications", "Document")), "standalone repair restores missing editor launchers")
     check(all("# BEGIN zaurusmd MIME" in p.read_text() for p in mime_paths(root)), "installer adds marked Markdown mappings")
     first = [p.read_bytes() for p in mime_paths(root)]
     run(hooks / "postinst", root, "configure")
@@ -141,6 +149,7 @@ with tempfile.TemporaryDirectory(prefix="zaurus-association-test-") as directory
     for path in mime_paths(root):
         with path.open("a") as stream:
             stream.write("text/markdown md markdown mkd\n")
+    extract(root, hooks)
     run(repair, root, "install")
     run(repair, root, "remove")
     check(all("text/markdown md markdown mkd" in p.read_text() for p in mime_paths(root)), "another app's Markdown mappings survive")

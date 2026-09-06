@@ -102,6 +102,30 @@ add_markdown()
     fi
 }
 
+repair_editor()
+{
+    # Qtopia passes documents separately through setDocument(QString), not %f.
+    for category in Applications Document; do
+        mkdir -p "$qtbase/apps/$category"
+        desktop="$qtbase/apps/$category/zaurusmd.desktop"
+        backup "$desktop"
+        cat > "$desktop.zaurusmd-tmp.$$" <<'EOF'
+[Desktop Entry]
+Comment=Markdown writer and reader
+Exec=zaurusmd
+Icon=TextEditor
+Type=Application
+Name=Zaurus MDEditor
+MimeType=text/markdown;text/x-markdown
+CanFastload=0
+EOF
+        commit_file "$desktop" "$desktop.zaurusmd-tmp.$$"
+    done
+    add_markdown "$qtbase/etc/mime.types"
+    add_markdown "$settings/mime.types"
+    echo "Restored text/markdown and text/x-markdown -> zaurusmd."
+}
+
 if [ "$mode" = remove ]; then
     remove_markdown "$qtbase/etc/mime.types"
     remove_markdown "$settings/mime.types"
@@ -124,9 +148,11 @@ else
         baseline_slmime > "$qtbase/etc/slmime.types.zaurusmd-tmp.$$"
         commit_file "$qtbase/etc/slmime.types" "$qtbase/etc/slmime.types.zaurusmd-tmp.$$"
     fi
-    if [ "$mode" = install ]; then
-        add_markdown "$qtbase/etc/mime.types"
-        add_markdown "$settings/mime.types"
+    if [ -x "$qtbase/bin/zaurusmd" ]; then
+        repair_editor
+    else
+        echo "Markdown editor is not installed: install the zaurusmd IPK to open Markdown files." >&2
+        if [ "$mode" = install ]; then exit 1; fi
     fi
 fi
 
