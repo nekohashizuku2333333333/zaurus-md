@@ -32,6 +32,7 @@
 #include <qdatetime.h>
 #include <qfont.h>
 #include <qpixmap.h>
+#include <qimage.h>
 #include <qtimer.h>
 #include <qtoolbutton.h>
 #include <qvbox.h>
@@ -286,12 +287,41 @@ void MainWindow::keyPressEvent(QKeyEvent *event)
 
 void MainWindow::layoutTopBars()
 {
+    updateDocButtons();
     if (saveIndicator) {
         int w = width();
         if (w < 240)
             w = 240;
         saveIndicator->setGeometry(w - 122, 1, 118, 30);
     }
+}
+
+void MainWindow::updateDocButtons()
+{
+    if (!docBar)
+        return;
+    QObjectList *buttons = docBar->queryList("QToolButton");
+    if (!buttons)
+        return;
+    int x = 0;
+    for (uint i = 0; i < buttons->count(); ++i) {
+        QToolButton *button = (QToolButton *)buttons->at(i);
+        if (!button)
+            continue;
+        bool show = true;
+        if (button == splitButton)
+            show = false;
+        if (button == todoButton)
+            show = isMarkdownTodoFile();
+        if (show) {
+            button->move(x, 1);
+            button->show();
+            x += 71;
+        } else {
+            button->hide();
+        }
+    }
+    delete buttons;
 }
 
 void MainWindow::layoutToolButtons()
@@ -335,6 +365,19 @@ bool MainWindow::confirmSaveIfNeeded()
 
 void MainWindow::rebuildToolBar()
 {
+    if (view && stack && stack->visibleWidget() == view) {
+        setToolButton(0, "TextEditor", "Edit");
+        setToolButton(1, isMarkdownTodoFile() ? "todo" : 0, isMarkdownTodoFile() ? "Todo" : "");
+        setToolButton(2, "fileopen", "Open");
+        setToolButton(3, "Save", "Save");
+        setToolButton(4, 0, "A+");
+        setToolButton(5, 0, "A-");
+        setToolButton(6, 0, "Sun");
+        setToolButton(7, 0, "");
+        setToolButton(8, 0, "");
+        setToolButton(9, 0, "");
+        return;
+    }
     if (todoPane && stack && stack->visibleWidget() == todoPane) {
         if (toolPage == 0) {
             setToolButton(0, 0, "Day");
@@ -441,15 +484,11 @@ void MainWindow::setToolButton(int index, const char *icon, const char *text)
 {
     if (index < 0 || index >= 10 || !toolButtons[index])
         return;
-    toolButtons[index]->setText(text);
-    toolButtons[index]->setTextLabel(text, true);
-    if (icon && Resource::findPixmap(icon) != QString::null) {
-        toolButtons[index]->setPixmap(Resource::loadPixmap(icon));
-        toolButtons[index]->setUsesTextLabel(false);
-    } else {
-        toolButtons[index]->setPixmap(QPixmap());
-        toolButtons[index]->setUsesTextLabel(true);
+    if ((!icon || !*icon) && (!text || !*text)) {
+        toolButtons[index]->hide();
+        return;
     }
+    setTopButtonIcon(toolButtons[index], icon, text);
     toolButtons[index]->show();
 }
 
@@ -475,6 +514,16 @@ void MainWindow::nextToolPage()
 
 void MainWindow::runTool(int index)
 {
+    if (view && stack && stack->visibleWidget() == view) {
+        if (index == 0) showEditor();
+        else if (index == 1 && isMarkdownTodoFile()) showTodo();
+        else if (index == 2) showBrowser();
+        else if (index == 3) saveFile();
+        else if (index == 4) fontBigger();
+        else if (index == 5) fontSmaller();
+        else if (index == 6) toggleTheme();
+        return;
+    }
     if (todoPane && stack && stack->visibleWidget() == todoPane) {
         if (index == 9) nextToolPage();
         else if (toolPage == 0) {
@@ -596,13 +645,7 @@ QToolButton *MainWindow::makeTopButton(QWidget *parent, const char *text, const 
     button->setAutoRaise(true);
     button->setText(text);
     button->setTextLabel(text, true);
-    if (icon && Resource::findPixmap(icon) != QString::null) {
-        button->setPixmap(Resource::loadPixmap(icon));
-        button->setUsesTextLabel(false);
-    } else {
-        button->setPixmap(QPixmap());
-        button->setUsesTextLabel(true);
-    }
+    setTopButtonIcon(button, icon, text);
     QObjectList *siblings = parent->queryList("QToolButton");
     int index = siblings ? siblings->count() - 1 : 0;
     delete siblings;
@@ -610,6 +653,26 @@ QToolButton *MainWindow::makeTopButton(QWidget *parent, const char *text, const 
     if (slot)
         connect(button, SIGNAL(clicked()), this, slot);
     return button;
+}
+
+void MainWindow::setTopButtonIcon(QToolButton *button, const char *icon, const char *text)
+{
+    if (!button)
+        return;
+    button->setText(text);
+    button->setTextLabel(text, true);
+    if (icon && Resource::findPixmap(icon) != QString::null) {
+        QPixmap pix = Resource::loadPixmap(icon);
+        if (!pix.isNull() && (pix.width() > 18 || pix.height() > 18)) {
+            QImage img = pix.convertToImage().smoothScale(18, 18);
+            pix.convertFromImage(img);
+        }
+        button->setPixmap(pix);
+        button->setUsesTextLabel(false);
+    } else {
+        button->setPixmap(QPixmap());
+        button->setUsesTextLabel(true);
+    }
 }
 
 void MainWindow::loadDirectory(const QString &path, bool remember)
@@ -1380,6 +1443,10 @@ void MainWindow::renameFile()
     QString name = TextPrompt::getText("Rename", "Name", info.fileName(), &ok, this);
     if (!ok || name.isEmpty())
         return;
+    if (name == info.fileName()) {
+        loadDirectory(currentDir);
+        return;
+    }
     QString next = info.dirPath(true) + "/" + name;
     if (QFileInfo(next).exists()) {
         QMessageBox::warning(this, "Rename", "File exists.");

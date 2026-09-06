@@ -139,6 +139,8 @@ private:
     void rebuildToolBar();
     void setToolLabel(int index, const char *text);
     void setToolButton(int index, const char *icon, const char *text);
+    void setTopButtonIcon(QToolButton *button, const char *icon, const char *text);
+    void updateDocButtons();
     void runTool(int index);
     void layoutToolButtons();
     void layoutTopBars();
