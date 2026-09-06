@@ -43,6 +43,7 @@ private slots:
     void showView();
     void showSplit();
     void showTodo();
+    void addTodoPrompt();
     void addTodoFromInput();
     void toggleTodoImportant();
     void toggleTodoMyDay();
@@ -152,6 +153,7 @@ private:
     void addStorageLocations();
     void openFile(const QString &path);
     void openFileInNewWindow(const QString &path);
+    bool shouldCloseAfterOpeningWindow() const;
     bool isEditableFileName(const QString &name) const;
     void refreshView();
     void refreshSplit();
@@ -205,6 +207,7 @@ private:
     QToolButton *modeButton;
     QToolButton *todoButton;
     QToolButton *splitButton;
+    QToolButton *linesButton;
     QLabel *saveIndicator;
     QWidget *fileBar;
     QWidget *docBar;

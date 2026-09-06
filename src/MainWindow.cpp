@@ -77,6 +77,7 @@ MainWindow::MainWindow(QWidget *parent, const char *name, WFlags flags)
       modeButton(0),
       todoButton(0),
       splitButton(0),
+      linesButton(0),
       saveIndicator(0),
       fileBar(0),
       docBar(0),
@@ -139,7 +140,7 @@ void MainWindow::buildUi()
     editor = new MdEdit(splitPane);
     splitView = new MdView(splitPane);
     splitView->hide();
-    QToolButton *linesButton = makeTopButton(docBar, "Lines", "textedit", 0);
+    linesButton = makeTopButton(docBar, "Lines", "textedit", 0);
     linesButton->setToggleButton(true);
     connect(linesButton, SIGNAL(clicked()), editor, SLOT(toggleLineNumbers()));
     editor->setUndoEnabled(true);
@@ -162,7 +163,7 @@ void MainWindow::buildUi()
     connect(todoList, SIGNAL(clicked(QListViewItem *)), this, SLOT(todoItemClicked(QListViewItem *)));
     todoAdd = new QLineEdit(todoPane);
     todoAdd->setFont(QFont("song", 12));
-    todoAdd->setText("+ Add task");
+    todoAdd->setText("");
     connect(todoAdd, SIGNAL(returnPressed()), this, SLOT(addTodoFromInput()));
 
     stack->addWidget(browser, 0);
@@ -311,9 +312,17 @@ void MainWindow::updateDocButtons()
         bool show = true;
         if (button == splitButton)
             show = false;
+        if (button == modeButton && isMarkdownTodoFile())
+            show = false;
+        if (button == linesButton && todoPane && stack && stack->visibleWidget() == todoPane)
+            show = false;
         if (button == todoButton)
             show = isMarkdownTodoFile();
         if (show) {
+            if (button == todoButton && todoPane && stack && stack->visibleWidget() == todoPane)
+                setTopButtonIcon(button, "TextEditor", "Source");
+            else if (button == todoButton)
+                setTopButtonIcon(button, "todo", "Todo");
             button->move(x, 1);
             button->show();
             x += 71;
@@ -380,25 +389,25 @@ void MainWindow::rebuildToolBar()
     }
     if (todoPane && stack && stack->visibleWidget() == todoPane) {
         if (toolPage == 0) {
+            setToolButton(0, "new", "New");
+            setToolButton(1, 0, "+Step");
+            setToolButton(2, "editdelete", "Del");
+            setToolButton(3, 0, "!");
+            setToolButton(4, 0, "MyDay");
+            setToolButton(5, 0, "Due");
+            setToolButton(6, 0, "Date");
+            setToolButton(7, 0, "Time");
+            setToolButton(8, 0, "All");
+        } else {
             setToolButton(0, 0, "Day");
             setToolButton(1, 0, "!");
             setToolButton(2, 0, "Due");
             setToolButton(3, 0, "All");
-            setToolButton(4, 0, "!*");
-            setToolButton(5, 0, "+Sub");
+            setToolButton(4, "up", "Up");
+            setToolButton(5, "down", "Down");
             setToolButton(6, "editdelete", "Del");
-            setToolButton(7, "TextEditor", "Edit");
+            setToolButton(7, "edit", "Title");
             setToolButton(8, "Save", "Save");
-        } else {
-            setToolButton(0, "up", "Up");
-            setToolButton(1, "down", "Down");
-            setToolButton(2, 0, "MyDay");
-            setToolButton(3, 0, "Due");
-            setToolButton(4, "edit", "Title");
-            setToolButton(5, 0, "Tab");
-            setToolButton(6, 0, "S-Tab");
-            setToolButton(7, "Save", "Save");
-            setToolButton(8, 0, "All");
         }
         setToolButton(9, "forward", "More");
         return;
@@ -506,7 +515,8 @@ void MainWindow::updateSaveIndicator()
 void MainWindow::nextToolPage()
 {
     ++toolPage;
-    if (toolPage > 5)
+    int maxPage = (todoPane && stack && stack->visibleWidget() == todoPane) ? 1 : 5;
+    if (toolPage > maxPage)
         toolPage = 0;
     rebuildToolBar();
     touchEditor();
@@ -527,25 +537,25 @@ void MainWindow::runTool(int index)
     if (todoPane && stack && stack->visibleWidget() == todoPane) {
         if (index == 9) nextToolPage();
         else if (toolPage == 0) {
+            if (index == 0) addTodoPrompt();
+            else if (index == 1) addTodoStep();
+            else if (index == 2) deleteTodoCurrent();
+            else if (index == 3) toggleTodoImportant();
+            else if (index == 4) toggleTodoMyDay();
+            else if (index == 5) setTodoDue();
+            else if (index == 6) setTodoDue();
+            else if (index == 7) setTodoDue();
+            else if (index == 8) todoViewMode = 3;
+        } else {
             if (index == 0) todoViewMode = 0;
             else if (index == 1) todoViewMode = 1;
             else if (index == 2) todoViewMode = 2;
             else if (index == 3) todoViewMode = 3;
-            else if (index == 4) toggleTodoImportant();
-            else if (index == 5) addTodoStep();
+            else if (index == 4) moveTodoUp();
+            else if (index == 5) moveTodoDown();
             else if (index == 6) deleteTodoCurrent();
-            else if (index == 7) showEditor();
+            else if (index == 7) editTodoCurrent();
             else if (index == 8) saveFile();
-        } else {
-            if (index == 0) moveTodoUp();
-            else if (index == 1) moveTodoDown();
-            else if (index == 2) toggleTodoMyDay();
-            else if (index == 3) setTodoDue();
-            else if (index == 4) editTodoCurrent();
-            else if (index == 5) demoteTodoCurrent();
-            else if (index == 6) promoteTodoCurrent();
-            else if (index == 7) saveFile();
-            else if (index == 8) todoViewMode = 3;
         }
         refreshTodo();
         return;
@@ -813,9 +823,22 @@ void MainWindow::openFile(const QString &path)
 
 void MainWindow::openFileInNewWindow(const QString &path)
 {
+    bool closeOld = shouldCloseAfterOpeningWindow();
     MainWindow *window = new MainWindow(0, 0, WDestructiveClose);
     window->openInitialFile(path);
     window->showMaximized();
+    if (closeOld)
+        close();
+}
+
+bool MainWindow::shouldCloseAfterOpeningWindow() const
+{
+    if (!currentFile.isEmpty())
+        return false;
+    if (!stack)
+        return false;
+    QWidget *visible = stack->visibleWidget();
+    return visible == browser || visible == documentSelector;
 }
 
 bool MainWindow::isEditableFileName(const QString &name) const
@@ -937,6 +960,10 @@ void MainWindow::refreshView()
 
 void MainWindow::showTodo()
 {
+    if (todoPane && stack && stack->visibleWidget() == todoPane) {
+        showEditor();
+        return;
+    }
     if (!isMarkdownTodoFile()) {
         statusBar()->message("Todo view is for Todo/*.md", 1200);
         return;
@@ -966,6 +993,12 @@ void MainWindow::refreshTodo()
     QString today = todayIsoDate();
     TodoMdDoc doc = TodoMd::parseTodo(editor->text(), today);
     todoList->clear();
+    int listW = todoList->width();
+    if (listW < 300)
+        listW = width();
+    todoList->setColumnWidth(0, listW * 2 / 3);
+    todoList->setColumnWidth(1, listW / 3 - 8);
+    todoList->setColumnWidth(2, 0);
     QListViewItem *doneGroup = 0;
     int doneCount = 0;
     TodoListItem *currentTaskItem = 0;
@@ -1059,7 +1092,20 @@ void MainWindow::addTodoFromInput()
     TodoMdDoc doc = TodoMd::parseTodo(editor->text(), today);
     TodoMd::addTask(&doc, title, todoViewMode == 0, today);
     editor->setText(TodoMd::serializeTodo(doc));
-    todoAdd->setText("+ Add task");
+    todoAdd->setText("");
+    saveTodoDoc();
+}
+
+void MainWindow::addTodoPrompt()
+{
+    bool ok = false;
+    QString title = TextPrompt::getText("New task", "Task", "", &ok, this);
+    if (!ok || title.stripWhiteSpace().isEmpty())
+        return;
+    QString today = todayIsoDate();
+    TodoMdDoc doc = TodoMd::parseTodo(editor->text(), today);
+    TodoMd::addTask(&doc, title.stripWhiteSpace(), todoViewMode == 0, today);
+    editor->setText(TodoMd::serializeTodo(doc));
     saveTodoDoc();
 }
 
