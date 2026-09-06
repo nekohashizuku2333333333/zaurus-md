@@ -1,4 +1,166 @@
 #!/bin/sh
+# Standalone Sharp/Qtopia association recovery; no installed editor required.
+baseline_mime() {
+cat <<'ZAURUS_MIME_BASELINE'
+application/activemessage
+application/andrew-inset	ez
+application/applefile
+application/atomicmail
+application/cu-seeme		csm cu
+application/dca-rft
+application/dec-dx
+application/excel		xls
+application/ghostview		
+application/ipkg	ipk
+application/mac-binhex40	hqx
+application/mac-compactpro	cpt
+application/macwriteii
+application/msword		doc dot wrd
+application/news-message-id
+application/news-transmission
+application/octet-stream	bin dms lha lzh exe class
+application/oda			oda
+application/pdf			pdf
+application/pgp			pgp
+application/pgp-signature	pgp
+application/postscript		ps ai eps
+application/powerpoint		ppt
+application/remote-printing
+application/rtf			rtf
+application/slate
+application/wita
+application/wordperfect5.1	wp5
+application/x-123		wk
+application/x-Wingz		wz
+application/x-bcpio		bcpio
+application/x-cdlink		vcd
+application/x-chess-pgn		pgn
+application/x-compress		z Z
+application/x-cpio		cpio
+application/x-csh		csh
+application/x-debian-package	deb
+application/x-director		dir dcr dxr
+application/x-dvi		dvi
+application/x-gtar		tgz gtar
+application/x-gunzip		gz
+application/x-gzip		gz
+application/x-hdf		hdf
+application/x-httpd-php		phtml pht php
+application/x-javascript	js
+application/x-koan		skp skd skt skm
+application/x-latex		latex
+application/x-maker		frm maker frame fm fb book fbdoc
+application/x-mif		mif
+application/x-msdos-program	com exe bat
+application/x-netcdf		nc cdf
+application/x-ns-proxy-autoconfig	pac
+application/x-perl		pl pm
+application/x-sh		sh
+application/x-shar		shar
+application/x-stuffit		sit
+application/x-sv4cpio		sv4cpio
+application/x-sv4crc		sv4crc
+application/x-tar		tar
+application/x-tcl		tcl
+application/x-tex		tex
+application/x-texinfo		texinfo texi
+application/x-troff		t tr roff
+application/x-troff-man		man
+application/x-troff-me		me
+application/x-troff-ms		ms
+application/x-ustar		ustar
+application/x-wais-source	src
+application/zip			zip
+audio/prs.sid			sid psid
+audio/basic			au snd
+audio/midi			mid midi kar
+audio/mpeg			mp3 mpga mp2
+audio/x-aiff			aif aifc aiff
+audio/x-pn-realaudio		ra ram
+audio/x-pn-realaudio-plugin
+audio/x-realaudio		ra
+audio/x-wav			wav
+chemical/x-pdb			xyz
+image/gif			gif
+image/ief			ief
+image/jpeg			jpeg jpg jpe
+image/png			png
+image/tiff			tiff tif
+image/x-bmp			bmp
+image/x-cmu-raster		ras
+image/x-portable-anymap		pnm
+image/x-portable-bitmap		pbm
+image/x-portable-graymap	pgm
+image/x-portable-pixmap		ppm
+image/x-rgb			rgb
+image/x-xbitmap			xbm
+image/x-xpixmap			xpm
+image/x-xwindowdump		xwd
+image/x-notepad			npd
+message/external-body
+message/news
+message/partial
+message/rfc822
+model/iges			igs iges
+model/mesh			msh mesh silo
+model/vrml			vrml wrl
+multipart/alternative
+multipart/appledouble
+multipart/digest
+multipart/mixed
+multipart/parallel
+text/css			css
+text/html			html htm
+text/plain			txt asc c cc h hh cpp hpp
+text/richtext			rtx
+text/tab-separated-values	tsv
+text/x-setext			etx
+text/x-sgml			sgml sgm
+text/x-vCalendar		vcs
+text/x-vCard			vcf
+text/x-xml-tableviewer		xmlt
+text/xml			xml dtd
+video/dl			dl
+video/fli			fli
+video/gl			gl
+video/mpeg			mpeg mp2 mpe mpg
+video/quicktime			mov qt
+video/x-msvideo			avi
+video/x-sgi-movie		movie
+x-conference/x-cooltalk		ice
+x-world/x-vrml			wrl vrml
+ZAURUS_MIME_BASELINE
+}
+baseline_qinstall() {
+cat <<'ZAURUS_QINSTALL_BASELINE'
+[Desktop Entry]
+CanFastload = 0
+Display = 640x480/144dpi,480x640/144dpi
+Exec = qinstall
+HidePrivilege = 1
+Icon = qinstall_icn.png
+MimeType = application/ipkg
+Name = Add/Remove Software
+Name[de] = Software
+Name[ja] = ソフトウェアの追加/削除
+Name[zh_CN] = 添加/删除
+Type = Application
+Type[de] = Anwendung
+ZAURUS_QINSTALL_BASELINE
+}
+baseline_slmime() {
+cat <<'ZAURUS_SLMIME_BASELINE'
+# mime type vs dir. for sl
+Image_Files		image/
+Text_Files		text/plain
+Music_Files		audio/
+Video_Files		video/
+Web_Files		text/html
+Web_Files/Pagemeno_Files	application/nf-mht
+Web_Files/Bookmark_Files	application/nf-url
+ZAURUS_SLMIME_BASELINE
+}
+#!/bin/sh
 # build-repair.sh prefixes this implementation with the stock data functions.
 set -eu
 set -f

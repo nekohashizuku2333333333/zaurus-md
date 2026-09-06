@@ -22,9 +22,11 @@ The current milestone is a compact Markor-style Markdown notebook:
   unsaved edits; autosave no longer writes behind the prompt
 - desktop files install to both Applications and Document with `%f` file
   arguments and Markdown MIME declarations
-- package restores the full Qtopia 1.7 `mime.types` baseline first, restores
-  the Sharp `slmime.types` category table, and maps `.ipk` back to
-  `qinstall.desktop` rather than the incompatible SDK `qipkg.desktop`
+- package 0.2 restores `.ipk` to Sharp `qinstall` without owning the system
+  launcher or MIME files; removal retains system associations and only removes
+  Markdown entries explicitly added by this package
+- recovery preserves existing MIME mappings and category customizations;
+  complete defaults are used only for missing/empty files
 - file manager launches are handled through Qtopia's document app path:
   `showMainDocumentWidget()` plus `setDocument(const QString&)`
 - paged editing toolbar with no scroll bar; `More` rotates the labels/actions
@@ -90,3 +92,28 @@ user-supplied corpus. Its recorded outputs can also be checked on the SDK host
 with `sh scripts/test-arm-corpus.sh`. See [corpus coverage](doc/corpus-coverage.md)
 for implemented syntax, unsupported extensions, and device validation limits.
 The vendored parser's MIT license is included in the IPK.
+
+## Recover IPK Associations
+
+Old 0.1 packages incorrectly owned the system `qinstall.desktop` (and earlier
+ones owned `mime.types`). Removing those packages could remove the system's
+file associations. Package 0.2 no longer lists those files in its data archive.
+
+`DIST/restore-ipk-association.sh` is standalone and works even after the editor
+has been uninstalled. On the Zaurus, as root, run it from the directory holding
+the file:
+
+```sh
+sh restore-ipk-association.sh
+```
+
+Install `DIST/zaurusmd_0.2_arm.ipk` afterward, or install it directly using
+`ipkg install` in the terminal (which does not need a working file association).
+It can upgrade 0.1 in place; uninstalling first is unnecessary.
+The script requests Qtopia link refresh. If a file manager retains an old
+association, reopen it or restart Qtopia after saving documents.
+
+Validation: `python3 tests/test-associations.py` checks isolated repair and
+package lifecycle behavior. `scripts/test-legacy-ipkg.sh` exercises the SDK's
+actual old ipkg with redirected state/config paths and a no-op link helper.
+See [repair details](doc/association-repair.md).
