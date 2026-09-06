@@ -202,6 +202,7 @@ private:
     MdEdit *editor;
     MdView *view;
     MdView *splitView;
+    QLabel *todoHeader;
     QListView *todoList;
     QLineEdit *todoAdd;
     QToolButton *modeButton;

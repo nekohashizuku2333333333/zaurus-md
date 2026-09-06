@@ -27,6 +27,7 @@
 #include <qmultilineedit.h>
 #include <qobjectlist.h>
 #include <qpalette.h>
+#include <qpainter.h>
 #include <qpushbutton.h>
 #include <qstatusbar.h>
 #include <qdatetime.h>
@@ -43,12 +44,62 @@
 class TodoListItem : public QCheckListItem {
 public:
     TodoListItem(QListView *parent, const QString &text, int t, int s, bool step)
-        : QCheckListItem(parent, text, CheckBox), taskIndex(t), stepIndex(s), isStep(step) { setText(2, step ? "step" : "task"); }
+        : QCheckListItem(parent, text, CheckBox), taskIndex(t), stepIndex(s), isStep(step), overdue(false) { setText(2, step ? "step" : "task"); }
     TodoListItem(QListViewItem *parent, const QString &text, int t, int s, bool step)
-        : QCheckListItem(parent, text, CheckBox), taskIndex(t), stepIndex(s), isStep(step) { setText(2, step ? "step" : "task"); }
+        : QCheckListItem(parent, text, CheckBox), taskIndex(t), stepIndex(s), isStep(step), overdue(false) { setText(2, step ? "step" : "task"); }
+    void setup()
+    {
+        QCheckListItem::setup();
+        setHeight(isStep ? 22 : 30);
+    }
+    void paintCell(QPainter *p, const QColorGroup &cg, int column, int width, int alignment)
+    {
+        QColorGroup g(cg);
+        if (isOn())
+            g.setColor(QColorGroup::Text, QColor(120, 120, 120));
+        else if (overdue && column == 1)
+            g.setColor(QColorGroup::Text, QColor(170, 0, 0));
+        if (!isStep && !isOn())
+            g.setColor(QColorGroup::Base, QColor(248, 250, 255));
+        QCheckListItem::paintCell(p, g, column, width, alignment);
+        if (isOn() && column == 0 && p) {
+            int y = height() / 2;
+            p->setPen(QColor(120, 120, 120));
+            p->drawLine(22, y, width - 4, y);
+        }
+    }
     int taskIndex;
     int stepIndex;
     bool isStep;
+    bool overdue;
+};
+
+class TodoAddEdit : public QLineEdit {
+public:
+    TodoAddEdit(QWidget *parent) : QLineEdit(parent), showingPrompt(false) { showPrompt(); }
+    QString taskText() const { return showingPrompt ? QString::null : text(); }
+    void clearTask() { clear(); showPrompt(); }
+    void focusInEvent(QFocusEvent *event)
+    {
+        if (showingPrompt) {
+            showingPrompt = false;
+            setText("");
+        }
+        QLineEdit::focusInEvent(event);
+    }
+    void focusOutEvent(QFocusEvent *event)
+    {
+        if (text().stripWhiteSpace().isEmpty())
+            showPrompt();
+        QLineEdit::focusOutEvent(event);
+    }
+private:
+    void showPrompt()
+    {
+        showingPrompt = true;
+        setText("+ Add task");
+    }
+    bool showingPrompt;
 };
 
 static QString todayIsoDate()
@@ -72,6 +123,7 @@ MainWindow::MainWindow(QWidget *parent, const char *name, WFlags flags)
       editor(0),
       view(0),
       splitView(0),
+      todoHeader(0),
       todoList(0),
       todoAdd(0),
       modeButton(0),
@@ -155,6 +207,10 @@ void MainWindow::buildUi()
     connect(splitView, SIGNAL(toggleTask(int)), this, SLOT(toggleTask(int)));
 
     todoPane = new QVBox(stack);
+    todoHeader = new QLabel(todoPane);
+    todoHeader->setFixedHeight(30);
+    todoHeader->setFont(QFont("song", 13, QFont::Bold));
+    todoHeader->setMargin(6);
     todoList = new QListView(todoPane);
     todoList->addColumn("Task");
     todoList->addColumn("Info");
@@ -163,9 +219,8 @@ void MainWindow::buildUi()
     todoList->setRootIsDecorated(true);
     todoList->setAllColumnsShowFocus(true);
     connect(todoList, SIGNAL(clicked(QListViewItem *)), this, SLOT(todoItemClicked(QListViewItem *)));
-    todoAdd = new QLineEdit(todoPane);
+    todoAdd = new TodoAddEdit(todoPane);
     todoAdd->setFont(QFont("song", 12));
-    todoAdd->setText("");
     connect(todoAdd, SIGNAL(returnPressed()), this, SLOT(addTodoFromInput()));
 
     stack->addWidget(browser, 0);
@@ -410,19 +465,19 @@ void MainWindow::rebuildToolBar()
     }
     if (todoPane && stack && stack->visibleWidget() == todoPane) {
         if (toolPage == 0) {
-            setToolButton(0, "new", "New");
-            setToolButton(1, 0, "+Step");
+            setToolButton(0, "new", "Task");
+            setToolButton(1, 0, "Step");
             setToolButton(2, "editdelete", "Del");
-            setToolButton(3, 0, "!");
-            setToolButton(4, 0, "MyDay");
+            setToolButton(3, 0, "Star");
+            setToolButton(4, 0, "Day");
             setToolButton(5, 0, "Due");
-            setToolButton(6, 0, "Date");
-            setToolButton(7, 0, "Time");
+            setToolButton(6, 0, "Title");
+            setToolButton(7, "Save", "Save");
             setToolButton(8, 0, "All");
         } else {
-            setToolButton(0, 0, "Day");
-            setToolButton(1, 0, "!");
-            setToolButton(2, 0, "Due");
+            setToolButton(0, 0, "Today");
+            setToolButton(1, 0, "Star");
+            setToolButton(2, 0, "Plan");
             setToolButton(3, 0, "All");
             setToolButton(4, "up", "Up");
             setToolButton(5, "down", "Down");
@@ -559,8 +614,8 @@ void MainWindow::runTool(int index)
             else if (index == 3) toggleTodoImportant();
             else if (index == 4) toggleTodoMyDay();
             else if (index == 5) setTodoDue();
-            else if (index == 6) setTodoDue();
-            else if (index == 7) setTodoDue();
+            else if (index == 6) editTodoCurrent();
+            else if (index == 7) saveFile();
             else if (index == 8) todoViewMode = 3;
         } else {
             if (index == 0) todoViewMode = 0;
@@ -1007,11 +1062,22 @@ void MainWindow::refreshTodo()
     QString today = todayIsoDate();
     TodoMdDoc doc = TodoMd::parseTodo(editor->text(), today);
     todoList->clear();
+    QString viewName = "All";
+    if (todoViewMode == 0)
+        viewName = "Today";
+    else if (todoViewMode == 1)
+        viewName = "Important";
+    else if (todoViewMode == 2)
+        viewName = "Planned";
+    if (todoHeader)
+        todoHeader->setText(QFileInfo(currentFile).fileName() + " - " + viewName);
     int listW = todoList->width();
     if (listW < 300)
         listW = width();
-    todoList->setColumnWidth(0, listW * 2 / 3);
-    todoList->setColumnWidth(1, listW / 3 - 8);
+    if (listW < 320)
+        listW = 320;
+    todoList->setColumnWidth(0, listW - 150);
+    todoList->setColumnWidth(1, 145);
     todoList->setColumnWidth(2, 0);
     QListViewItem *doneGroup = 0;
     int doneCount = 0;
@@ -1040,15 +1106,20 @@ void MainWindow::refreshTodo()
             }
             QString info;
             if (e.important)
-                info += "!";
+                info += "*";
             if (!e.due.isEmpty()) {
                 if (!info.isEmpty())
                     info += " ";
-                info += "due:" + e.due;
+                info += e.due;
+            }
+            if (e.myday == today) {
+                if (!info.isEmpty())
+                    info += " ";
+                info += "Today";
             }
             if (e.done) {
                 if (!doneGroup)
-                    doneGroup = new QListViewItem(todoList, "Done", "");
+                    doneGroup = new QListViewItem(todoList, "Completed", "");
                 currentTaskItem = new TodoListItem(doneGroup, e.title, e.task, -1, false);
                 ++doneCount;
             } else {
@@ -1056,6 +1127,7 @@ void MainWindow::refreshTodo()
             }
             currentTaskItem->setOn(e.done);
             currentTaskItem->setText(1, info);
+            currentTaskItem->overdue = !e.done && !e.due.isEmpty() && e.due < today;
             currentTaskItem->setOpen(true);
         } else if (e.kind == TodoMdEntry::Step && currentTaskItem && e.task == currentTask) {
             TodoListItem *step = new TodoListItem(currentTaskItem, e.title, e.task, stepTotal, true);
@@ -1068,7 +1140,7 @@ void MainWindow::refreshTodo()
     if (currentTaskItem && stepTotal > 0)
         currentTaskItem->setText(1, currentTaskItem->text(1) + " " + QString::number(stepDone) + "/" + QString::number(stepTotal));
     if (doneGroup) {
-        doneGroup->setText(0, "Done (" + QString::number(doneCount) + ")");
+        doneGroup->setText(0, "Completed (" + QString::number(doneCount) + ")");
         doneGroup->setOpen(false);
     }
 }
@@ -1097,7 +1169,8 @@ void MainWindow::todoItemClicked(QListViewItem *item)
 
 void MainWindow::addTodoFromInput()
 {
-    QString title = todoAdd->text().stripWhiteSpace();
+    TodoAddEdit *input = (TodoAddEdit *)todoAdd;
+    QString title = input->taskText().stripWhiteSpace();
     if (title.left(1) == "+")
         title = title.mid(1).stripWhiteSpace();
     if (title.isEmpty())
@@ -1106,7 +1179,7 @@ void MainWindow::addTodoFromInput()
     TodoMdDoc doc = TodoMd::parseTodo(editor->text(), today);
     TodoMd::addTask(&doc, title, todoViewMode == 0, today);
     editor->setText(TodoMd::serializeTodo(doc));
-    todoAdd->setText("");
+    input->clearTask();
     saveTodoDoc();
 }
 
@@ -1814,6 +1887,12 @@ void MainWindow::applyFontSize()
     view->setFont(f);
     splitView->setFont(f);
     browser->setFont(QFont("song", 11));
+    if (todoHeader)
+        todoHeader->setFont(QFont("song", 13, QFont::Bold));
+    if (todoList)
+        todoList->setFont(QFont("song", 12));
+    if (todoAdd)
+        todoAdd->setFont(QFont("song", 12));
 }
 
 void MainWindow::applyTheme()
@@ -1823,6 +1902,16 @@ void MainWindow::applyTheme()
         view->unsetPalette();
         splitView->unsetPalette();
         browser->unsetPalette();
+        if (todoPane)
+            todoPane->unsetPalette();
+        if (todoHeader) {
+            todoHeader->unsetPalette();
+            todoHeader->setPalette(QPalette(QColor(255, 255, 255), QColor(58, 99, 170)));
+        }
+        if (todoList)
+            todoList->unsetPalette();
+        if (todoAdd)
+            todoAdd->unsetPalette();
         return;
     }
     QPalette pal(QColor(238, 238, 238), QColor(32, 32, 32));
@@ -1830,6 +1919,14 @@ void MainWindow::applyTheme()
     view->setPalette(pal);
     splitView->setPalette(pal);
     browser->setPalette(pal);
+    if (todoPane)
+        todoPane->setPalette(pal);
+    if (todoHeader)
+        todoHeader->setPalette(QPalette(QColor(255, 255, 255), QColor(38, 63, 105)));
+    if (todoList)
+        todoList->setPalette(pal);
+    if (todoAdd)
+        todoAdd->setPalette(pal);
 }
 
 void MainWindow::wrapBold()
