@@ -2,11 +2,12 @@
 set -eu
 
 APP=zaurusmd
-VER=0.6
+VER=0.7
 IPKDIR=IPK
 
 sh scripts/build-repair.sh
 rm -rf "$IPKDIR"
+rm -f "DIST/${APP}_"*_arm.ipk
 mkdir -p "$IPKDIR/home/QtPalmtop/bin"
 mkdir -p "$IPKDIR/home/QtPalmtop/apps/Applications"
 mkdir -p "$IPKDIR/home/QtPalmtop/apps/Document"

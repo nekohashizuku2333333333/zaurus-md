@@ -35,10 +35,11 @@
 #include <qwidgetstack.h>
 #include <qlist.h>
 
-MainWindow::MainWindow(QWidget *parent, const char *name)
-    : QMainWindow(parent, name),
+MainWindow::MainWindow(QWidget *parent, const char *name, WFlags flags)
+    : QMainWindow(parent, name, flags),
       notesDir("/home/zaurus/Documents/Notes"),
       currentDir(notesDir),
+      dirHistoryIndex(-1),
       browser(0),
       documentSelector(0),
       stack(0),
@@ -70,9 +71,11 @@ void MainWindow::buildUi()
 
     fileBar = new QWidget(root);
     fileBar->setFixedHeight(32);
-    makeTopButton(fileBar, "^", SLOT(goUp()));
-    makeTopButton(fileBar, "+F", SLOT(newFile()));
-    makeTopButton(fileBar, "+D", SLOT(newFolder()));
+    makeTopButton(fileBar, "Back", SLOT(goBack()));
+    makeTopButton(fileBar, "Fwd", SLOT(goForward()));
+    makeTopButton(fileBar, "Up", SLOT(goUp()));
+    makeTopButton(fileBar, "New", SLOT(newFile()));
+    makeTopButton(fileBar, "Dir", SLOT(newFolder()));
     makeTopButton(fileBar, "Ren", SLOT(renameFile()));
     makeTopButton(fileBar, "Del", SLOT(deleteFile()));
     makeTopButton(fileBar, "Docs", SLOT(showDocumentLibrary()));
@@ -436,9 +439,21 @@ QPushButton *MainWindow::makeTopButton(QWidget *parent, const char *text, const 
     return button;
 }
 
-void MainWindow::loadDirectory(const QString &path)
+void MainWindow::loadDirectory(const QString &path, bool remember)
 {
     currentDir = QDir(path).absPath();
+    if (remember) {
+        if ((int)dirHistory.count() > dirHistoryIndex + 1) {
+            QStringList kept;
+            for (int i = 0; i <= dirHistoryIndex; ++i)
+                kept.append(dirHistory[i]);
+            dirHistory = kept;
+        }
+        if (dirHistoryIndex < 0 || dirHistory[dirHistoryIndex] != currentDir) {
+            dirHistory.append(currentDir);
+            dirHistoryIndex = dirHistory.count() - 1;
+        }
+    }
     if (stack && stack->visibleWidget() == browser)
         currentFile = QString::null;
     updateCaption();
@@ -536,7 +551,7 @@ void MainWindow::openSelected(QListViewItem *item)
         loadDirectory(path);
         return;
     }
-    openFile(path);
+    openFileInNewWindow(path);
 }
 
 void MainWindow::openFile(const QString &path)
@@ -550,6 +565,13 @@ void MainWindow::openFile(const QString &path)
     editor->setEdited(false);
     updateCaption();
     showEditor();
+}
+
+void MainWindow::openFileInNewWindow(const QString &path)
+{
+    MainWindow *window = new MainWindow(0, 0, WDestructiveClose);
+    window->openInitialFile(path);
+    window->showMaximized();
 }
 
 bool MainWindow::isEditableFileName(const QString &name) const
@@ -606,7 +628,7 @@ void MainWindow::openDocumentLibraryFile(const DocLnk &doc)
 {
     QString path = doc.file();
     if (!path.isEmpty())
-        openInitialFile(path);
+        openFileInNewWindow(path);
 }
 
 void MainWindow::showEditor()
@@ -684,7 +706,7 @@ void MainWindow::newFile()
     }
     FileUtil::writeUtf8Atomic(path, "# " + name + "\n\n");
     loadDirectory(currentDir);
-    openFile(path);
+    openFileInNewWindow(path);
 }
 
 void MainWindow::newFolder()
@@ -705,6 +727,22 @@ void MainWindow::newFolder()
     if (!FileUtil::ensureDir(path))
         QMessageBox::warning(this, "New folder", "Cannot create folder.");
     loadDirectory(currentDir);
+}
+
+void MainWindow::goBack()
+{
+    if ((int)dirHistory.count() == 0 || dirHistoryIndex <= 0)
+        return;
+    --dirHistoryIndex;
+    loadDirectory(dirHistory[dirHistoryIndex], false);
+}
+
+void MainWindow::goForward()
+{
+    if (dirHistoryIndex < 0 || dirHistoryIndex + 1 >= (int)dirHistory.count())
+        return;
+    ++dirHistoryIndex;
+    loadDirectory(dirHistory[dirHistoryIndex], false);
 }
 
 void MainWindow::goUp()

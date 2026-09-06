@@ -3,6 +3,7 @@
 
 #include <qmainwindow.h>
 #include <qstring.h>
+#include <qstringlist.h>
 #include <qvaluelist.h>
 
 class QListView;
@@ -22,7 +23,7 @@ class FileSelector;
 class MainWindow : public QMainWindow {
     Q_OBJECT
 public:
-    MainWindow(QWidget *parent = 0, const char *name = 0);
+    MainWindow(QWidget *parent = 0, const char *name = 0, WFlags flags = 0);
     void openInitialFile(const QString &path);
 
 public slots:
@@ -41,6 +42,8 @@ private slots:
     void toggleTask(int lineNumber);
     void insertTask();
     void newFile();
+    void goBack();
+    void goForward();
     void goUp();
     void showRoot();
     void showDocumentLibrary();
@@ -124,10 +127,11 @@ private:
     bool confirmSaveIfNeeded();
     void updateCaption();
     void updateSaveIndicator();
-    void loadDirectory(const QString &path);
+    void loadDirectory(const QString &path, bool remember = true);
     void addLocationItem(const QString &name, const QString &path);
     void addStorageLocations();
     void openFile(const QString &path);
+    void openFileInNewWindow(const QString &path);
     bool isEditableFileName(const QString &name) const;
     void refreshView();
     QString selectedText() const;
@@ -158,6 +162,8 @@ private:
     QString notesDir;
     QString currentDir;
     QString currentFile;
+    QStringList dirHistory;
+    int dirHistoryIndex;
     QListView *browser;
     FileSelector *documentSelector;
     QWidgetStack *stack;
