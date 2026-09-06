@@ -8,7 +8,7 @@ import tempfile
 
 repo = Path(__file__).resolve().parents[1]
 repair = repo / "DIST/restore-ipk-association.sh"
-package = repo / "DIST/zaurusmd_0.5_arm.ipk"
+package = repo / "DIST/zaurusmd_0.6_arm.ipk"
 checks = 0
 
 
@@ -73,6 +73,9 @@ with tarfile.open(fileobj=io.BytesIO(payload)) as data:
 owned = [m.name.removeprefix("./") for m in members if not m.isdir()]
 check(not any("/apps/Settings/" in n or "/etc/" in n or "/home/zaurus/Settings/" in n for n in owned),
       "package does not own system launcher or MIME files")
+with tarfile.open(fileobj=io.BytesIO(control)) as control_tar:
+    control_text = control_tar.extractfile("./control").read().decode()
+check("Depends:" not in control_text, "GUI install has no unsatisfied dependency gate")
 
 
 def extract(root, hooks):
@@ -113,6 +116,12 @@ with tempfile.TemporaryDirectory(prefix="zaurus-association-test-") as directory
     run(repair, root)
     check(first == [p.read_bytes() for p in mime_paths(root)], "standalone repair is idempotent")
 
+    extract(root, hooks)
+    broken_script = qt / "bin/restore-file-associations"
+    broken_script.write_text("#!/bin/sh\nexit 1\n")
+    broken_script.chmod(0o755)
+    run(hooks / "postinst", root, "configure")
+    check(True, "postinst ignores non-critical association repair failures")
     extract(root, hooks)
     run(hooks / "postinst", root, "configure")
     for category in ("Applications", "Document"):

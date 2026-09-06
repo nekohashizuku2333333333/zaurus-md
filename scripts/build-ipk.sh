@@ -2,7 +2,7 @@
 set -eu
 
 APP=zaurusmd
-VER=0.5
+VER=0.6
 IPKDIR=IPK
 
 sh scripts/build-repair.sh
@@ -49,24 +49,25 @@ Section: Applications
 Version: $VER
 Architecture: arm
 Maintainer: local
-Depends: libc6
 Description: Markdown writer and reader for Qtopia
 EOF
 
 cat > "$IPKDIR/CONTROL/postinst" <<'EOF'
 #!/bin/sh
-set -eu
 payload_root=${ZAURUSMD_ROOT:-${PKG_ROOT:-}}
-sh "$payload_root/home/QtPalmtop/bin/restore-file-associations" install
+if [ -f "$payload_root/home/QtPalmtop/bin/restore-file-associations" ]; then
+    sh "$payload_root/home/QtPalmtop/bin/restore-file-associations" install || true
+fi
+exit 0
 EOF
 
 cat > "$IPKDIR/CONTROL/prerm" <<'EOF'
 #!/bin/sh
-set -eu
 payload_root=${ZAURUSMD_ROOT:-${PKG_ROOT:-}}
 if [ -f "$payload_root/home/QtPalmtop/bin/restore-file-associations" ]; then
-    sh "$payload_root/home/QtPalmtop/bin/restore-file-associations" remove
+    sh "$payload_root/home/QtPalmtop/bin/restore-file-associations" remove || true
 fi
+exit 0
 EOF
 cat > "$IPKDIR/CONTROL/postrm" <<'EOF'
 #!/bin/sh

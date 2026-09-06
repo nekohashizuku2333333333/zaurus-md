@@ -48,7 +48,7 @@ sh "$repair_script"
 verify_system
 echo 'PASS standalone script repairs an already-uninstalled system'
 
-"$work/ipkg" -force-depends install "$new_package"
+"$work/ipkg" install "$new_package"
 if grep -q '/apps/Settings/\|/etc/mime.types\|/Settings/mime.types' "$root/usr/lib/ipkg/info/zaurusmd.list"; then
     echo 'FAIL package still owns system association files' >&2
     exit 1
@@ -59,14 +59,14 @@ verify_system
 test ! -e "$root/home/QtPalmtop/bin/zaurusmd"
 echo 'PASS new package install/remove retains system and TXT associations'
 
-"$work/ipkg" -force-depends install "$new_package"
+"$work/ipkg" install "$new_package"
 verify_system
 "$work/ipkg" remove zaurusmd
 verify_system
 echo 'PASS reinstall/remove retains system associations'
 
 IGNORE_SCRIPTS=t "$work/ipkg" -force-depends install "$old_package"
-"$work/ipkg" -force-depends install "$new_package"
+"$work/ipkg" install "$new_package"
 verify_system
 "$work/ipkg" remove zaurusmd
 verify_system
