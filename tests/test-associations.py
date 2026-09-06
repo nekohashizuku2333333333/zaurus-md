@@ -8,7 +8,7 @@ import tempfile
 
 repo = Path(__file__).resolve().parents[1]
 repair = repo / "DIST/restore-ipk-association.sh"
-package = repo / "DIST/zaurusmd_0.4_arm.ipk"
+package = repo / "DIST/zaurusmd_0.5_arm.ipk"
 checks = 0
 
 

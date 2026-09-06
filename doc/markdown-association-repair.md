@@ -1,4 +1,4 @@
-# Markdown association repair (0.4)
+# Markdown association repair (0.5)
 
 The system MIME recovery in 0.2 did not restore missing zaurusmd desktop
 entries. Recovery now checks for the installed executable and restores both
@@ -21,7 +21,7 @@ sh restore-ipk-association.sh
 If the editor is absent, install instead:
 
 ```sh
-ipkg install zaurusmd_0.4_arm.ipk
+ipkg install zaurusmd_0.5_arm.ipk
 ```
 
 Both paths request a Qtopia link refresh. Close and reopen the file manager;

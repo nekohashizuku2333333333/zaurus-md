@@ -7,6 +7,10 @@
 #include "TextPrompt.h"
 #include "TodoTxt.h"
 
+#include <qtopia/applnk.h>
+#include <qtopia/fileselector.h>
+#include <qtopia/storage.h>
+
 #include <qdir.h>
 #include <qfile.h>
 #include <qfileinfo.h>
@@ -29,12 +33,14 @@
 #include <qvbox.h>
 #include <qhbox.h>
 #include <qwidgetstack.h>
+#include <qlist.h>
 
 MainWindow::MainWindow(QWidget *parent, const char *name)
     : QMainWindow(parent, name),
       notesDir("/home/zaurus/Documents/Notes"),
       currentDir(notesDir),
       browser(0),
+      documentSelector(0),
       stack(0),
       editor(0),
       view(0),
@@ -69,6 +75,8 @@ void MainWindow::buildUi()
     makeTopButton(fileBar, "+D", SLOT(newFolder()));
     makeTopButton(fileBar, "Ren", SLOT(renameFile()));
     makeTopButton(fileBar, "Del", SLOT(deleteFile()));
+    makeTopButton(fileBar, "Docs", SLOT(showDocumentLibrary()));
+    makeTopButton(fileBar, "Root", SLOT(showRoot()));
 
     docBar = new QWidget(root);
     docBar->setFixedHeight(32);
@@ -87,6 +95,9 @@ void MainWindow::buildUi()
     browser->setColumnWidth(2, 0);
     connect(browser, SIGNAL(doubleClicked(QListViewItem *)), this, SLOT(openSelected(QListViewItem *)));
 
+    documentSelector = new FileSelector("text/*", stack, "documentSelector", FALSE, FALSE);
+    connect(documentSelector, SIGNAL(fileSelected(const DocLnk &)), this, SLOT(openDocumentLibraryFile(const DocLnk &)));
+
     editor = new MdEdit(stack);
     QPushButton *linesButton = makeTopButton(docBar, "Lines", 0);
     linesButton->setToggleButton(true);
@@ -102,6 +113,7 @@ void MainWindow::buildUi()
     stack->addWidget(browser, 0);
     stack->addWidget(editor, 1);
     stack->addWidget(view, 2);
+    stack->addWidget(documentSelector, 3);
 
     toolBar = new QWidget(root);
     toolBar->setFixedHeight(30);
@@ -434,6 +446,7 @@ void MainWindow::loadDirectory(const QString &path)
     if (currentDir == "/") {
         addLocationItem("Documents", "/home/zaurus/Documents");
         addLocationItem("Notes", notesDir);
+        addStorageLocations();
         addLocationItem("CF Card", "/mnt/cf");
         addLocationItem("SD Card", "/mnt/card");
         addLocationItem("SD Card", "/mnt/sd");
@@ -475,8 +488,36 @@ void MainWindow::addLocationItem(const QString &name, const QString &path)
     QFileInfo info(path);
     if (!info.exists() || !info.isDir() || !info.isReadable())
         return;
+    QListViewItem *scan = browser->firstChild();
+    while (scan) {
+        if (scan->text(2) == info.absFilePath())
+            return;
+        scan = scan->nextSibling();
+    }
     QListViewItem *entry = new QListViewItem(browser, name, path);
     entry->setText(2, info.absFilePath());
+}
+
+void MainWindow::addStorageLocations()
+{
+    StorageInfo storage;
+    const QList<FileSystem> &fileSystems = storage.fileSystems();
+    QListIterator<FileSystem> it(fileSystems);
+    for (; it.current(); ++it) {
+        const FileSystem *fs = *it;
+        if (!fs)
+            continue;
+        QString path = fs->path();
+        if (path.isEmpty() || path == "/")
+            continue;
+        QString name = fs->name();
+        if (name.isEmpty())
+            name = path;
+        addLocationItem(name, path);
+        QString documents = path + "/Documents";
+        if (QFileInfo(documents).isDir())
+            addLocationItem(name + " Documents", documents);
+    }
 }
 
 void MainWindow::openSelected(QListViewItem *item)
@@ -532,6 +573,40 @@ void MainWindow::showBrowser()
     fileBar->show();
     stack->raiseWidget(browser);
     browser->setFocus();
+}
+
+void MainWindow::showRoot()
+{
+    if (!confirmSaveIfNeeded())
+        return;
+    currentFile = QString::null;
+    docBar->hide();
+    fileBar->show();
+    stack->raiseWidget(browser);
+    loadDirectory("/");
+    browser->setFocus();
+}
+
+void MainWindow::showDocumentLibrary()
+{
+    if (!confirmSaveIfNeeded())
+        return;
+    currentFile = QString::null;
+    updateCaption();
+    updateSaveIndicator();
+    docBar->hide();
+    fileBar->show();
+    if (documentSelector)
+        documentSelector->reread();
+    stack->raiseWidget(documentSelector);
+    documentSelector->setFocus();
+}
+
+void MainWindow::openDocumentLibraryFile(const DocLnk &doc)
+{
+    QString path = doc.file();
+    if (!path.isEmpty())
+        openInitialFile(path);
 }
 
 void MainWindow::showEditor()

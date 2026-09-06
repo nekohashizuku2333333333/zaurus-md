@@ -16,6 +16,8 @@ class QTimer;
 class QLabel;
 class QCloseEvent;
 class QResizeEvent;
+class DocLnk;
+class FileSelector;
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -40,6 +42,9 @@ private slots:
     void insertTask();
     void newFile();
     void goUp();
+    void showRoot();
+    void showDocumentLibrary();
+    void openDocumentLibraryFile(const DocLnk &doc);
     void wrapBold();
     void wrapItalic();
     void wrapCode();
@@ -121,6 +126,7 @@ private:
     void updateSaveIndicator();
     void loadDirectory(const QString &path);
     void addLocationItem(const QString &name, const QString &path);
+    void addStorageLocations();
     void openFile(const QString &path);
     bool isEditableFileName(const QString &name) const;
     void refreshView();
@@ -153,6 +159,7 @@ private:
     QString currentDir;
     QString currentFile;
     QListView *browser;
+    FileSelector *documentSelector;
     QWidgetStack *stack;
     MdEdit *editor;
     MdView *view;
