@@ -137,6 +137,9 @@ private:
     bool isEditableFileName(const QString &name) const;
     void refreshView();
     void refreshSplit();
+    void applyMarkdownAction(int actionId);
+    int editorByteOffset(int line, int col) const;
+    void byteOffsetToCursor(const QString &text, int bytes, int *line, int *col) const;
     QString selectedText() const;
     void replaceSelectionOrInsert(const QString &text);
     void wrapSelection(const QString &before, const QString &after);

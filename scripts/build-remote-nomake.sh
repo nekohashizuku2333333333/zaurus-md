@@ -23,6 +23,7 @@ rm -f src/*.o *.o moc_MainWindow.cpp moc_MdEdit.cpp moc_MdView.cpp
 for f in \
   src/main.cpp \
   src/MainWindow.cpp \
+  src/MarkdownActions.cpp \
   src/MdEdit.cpp \
   src/MdView.cpp \
   src/TextPrompt.cpp \
@@ -42,7 +43,7 @@ for f in src/MdRichText.c vendor/md4c/md4c.c vendor/md4c/entity.c; do
 done
 
 "$CXX" $LFLAGS -o DIST/zaurusmd \
-  src/main.o src/MainWindow.o src/MdEdit.o src/MdView.o src/TextPrompt.o src/MdParser.o \
+  src/main.o src/MainWindow.o src/MarkdownActions.o src/MdEdit.o src/MdView.o src/TextPrompt.o src/MdParser.o \
   src/TodoTxt.o src/FileUtil.o moc_MainWindow.o moc_MdEdit.o moc_MdView.o \
   src/MdRichText.o vendor/md4c/md4c.o vendor/md4c/entity.o \
   $LIBS

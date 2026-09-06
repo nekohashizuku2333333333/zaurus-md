@@ -5,6 +5,7 @@ DESTDIR = DIST
 
 HEADERS = \
     src/MainWindow.h \
+    src/MarkdownActions.h \
     src/MdEdit.h \
     src/MdView.h \
     src/TextPrompt.h \
@@ -16,6 +17,7 @@ HEADERS = \
 SOURCES = \
     src/main.cpp \
     src/MainWindow.cpp \
+    src/MarkdownActions.cpp \
     src/MdEdit.cpp \
     src/MdView.cpp \
     src/TextPrompt.cpp \

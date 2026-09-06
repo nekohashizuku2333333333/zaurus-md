@@ -2,6 +2,7 @@
 
 #include "FileUtil.h"
 #include "MdEdit.h"
+#include "MarkdownActions.h"
 #include "MdParser.h"
 #include "MdView.h"
 #include "TextPrompt.h"
@@ -728,6 +729,87 @@ void MainWindow::refreshSplit()
     splitView->setText(MdParser::toRichText(text, 0), currentFile);
 }
 
+int MainWindow::editorByteOffset(int line, int col) const
+{
+    int offset = 0;
+    if (line < 0)
+        line = 0;
+    for (int row = 0; row < line && row < editor->logicalLineCount(); ++row)
+        offset += editor->logicalLine(row).utf8().length() + 1;
+    if (line < editor->logicalLineCount()) {
+        QString prefix = editor->logicalLine(line).left(col);
+        offset += prefix.utf8().length();
+    }
+    return offset;
+}
+
+void MainWindow::byteOffsetToCursor(const QString &text, int bytes, int *line, int *col) const
+{
+    if (bytes < 0)
+        bytes = 0;
+    QStringList lines = QStringList::split('\n', text, true);
+    int consumed = 0;
+    for (int row = 0; row < (int)lines.count(); ++row) {
+        QString one = lines[row];
+        int lineBytes = one.utf8().length();
+        if (bytes <= consumed + lineBytes) {
+            int best = 0;
+            for (int c = 0; c <= (int)one.length(); ++c) {
+                int here = one.left(c).utf8().length();
+                if (consumed + here <= bytes)
+                    best = c;
+                else
+                    break;
+            }
+            *line = row;
+            *col = best;
+            return;
+        }
+        consumed += lineBytes + 1;
+    }
+    *line = lines.count() ? lines.count() - 1 : 0;
+    *col = lines.count() ? lines[*line].length() : 0;
+}
+
+void MainWindow::applyMarkdownAction(int actionId)
+{
+    int l1, c1, l2, c2;
+    bool hasSel = editor->selectionRegion(&l1, &c1, &l2, &c2);
+    if (!hasSel) {
+        editor->logicalCursor(&l1, &c1);
+        l2 = l1;
+        c2 = c1;
+    }
+    int start = editorByteOffset(l1, c1);
+    int end = editorByteOffset(l2, c2);
+    if (start > end) {
+        int t = start;
+        start = end;
+        end = t;
+    }
+
+    MdActionCtx ctx;
+    ctx.indentWidth = 2;
+    ctx.dateText = QDate::currentDate().toString().latin1();
+    ctx.timeText = QTime::currentTime().toString().latin1();
+    QCString utf = editor->text().utf8();
+    MdActionResult result = mdApplyAction((MdActionId)actionId, std::string(utf.data(), utf.length()), start, end, ctx);
+    QString next = QString::fromUtf8(result.text.c_str(), result.text.size());
+    editor->setText(next);
+    int sl, sc, el, ec;
+    byteOffsetToCursor(next, result.selStart, &sl, &sc);
+    byteOffsetToCursor(next, result.selEnd, &el, &ec);
+    if (result.selStart != result.selEnd)
+        editor->selectLogical(sl, sc, el, ec);
+    else
+        editor->setLogicalCursor(sl, sc);
+    editor->setEdited(true);
+    touchEditor();
+    scheduleAutosave();
+    if (splitView && splitView->isVisible())
+        refreshSplit();
+}
+
 void MainWindow::saveFile()
 {
     if (currentFile.isEmpty())
@@ -1198,83 +1280,47 @@ void MainWindow::applyTheme()
 
 void MainWindow::wrapBold()
 {
-    toggleInlineMarkup("**", "**");
+    applyMarkdownAction(MdActBold);
 }
 
 void MainWindow::wrapItalic()
 {
-    toggleInlineMarkup("*", "*");
+    applyMarkdownAction(MdActItalic);
 }
 
 void MainWindow::wrapCode()
 {
-    toggleInlineMarkup("`", "`");
+    applyMarkdownAction(MdActCode);
 }
 
 void MainWindow::cycleHeading()
 {
-    int row, col;
-    editor->logicalCursor(&row, &col);
-    QString line = editor->logicalLine(row).stripWhiteSpace();
-    if (line.left(4) == "### ")
-        line = line.mid(4);
-    else if (line.left(3) == "## ")
-        line = "### " + line.mid(3);
-    else if (line.left(2) == "# ")
-        line = "## " + line.mid(2);
-    else
-        line = "# " + line;
-    replaceCurrentLine(line);
+    applyMarkdownAction(MdActHeading);
 }
 
 void MainWindow::toggleBullet()
 {
-    applyLinePrefix("- ", false);
+    applyMarkdownAction(MdActBullet);
 }
 
 void MainWindow::toggleNumber()
 {
-    applyLinePrefix("1. ", true);
+    applyMarkdownAction(MdActNumber);
 }
 
 void MainWindow::toggleTaskCurrent()
 {
-    int first, last;
-    if (selectedLineRange(&first, &last) && first != last) {
-        transformLineRange("task");
-        return;
-    }
-
-    int row, col;
-    editor->logicalCursor(&row, &col);
-    QString line = editor->logicalLine(row);
-    int p = line.find("[ ]");
-    if (p >= 0) {
-        line.replace(p, 3, "[x]");
-    } else {
-        p = line.find("[x]");
-        if (p < 0)
-            p = line.find("[X]");
-        if (p >= 0)
-            line.replace(p, 3, "[ ]");
-        else
-            line = "- [ ] " + line.stripWhiteSpace();
-    }
-    replaceCurrentLine(line);
+    applyMarkdownAction(MdActTask);
 }
 
 void MainWindow::quoteLine()
 {
-    applyLinePrefix("> ", false);
+    applyMarkdownAction(MdActQuote);
 }
 
 void MainWindow::insertLink()
 {
-    QString sel = selectedText();
-    if (sel.isNull())
-        sel = "text";
-    replaceSelectionOrInsert("[" + sel + "](url)");
-    touchEditor();
+    applyMarkdownAction(MdActLink);
 }
 
 void MainWindow::insertImage()
@@ -1308,51 +1354,27 @@ void MainWindow::insertCodeBlock()
 
 void MainWindow::insertRule()
 {
-    replaceSelectionOrInsert("\n---\n");
-    touchEditor();
+    applyMarkdownAction(MdActRule);
 }
 
 void MainWindow::indentLine()
 {
-    int first, last;
-    if (selectedLineRange(&first, &last) && first != last) {
-        transformLineRange("indent");
-        return;
-    }
-
-    int row, col;
-    editor->logicalCursor(&row, &col);
-    replaceCurrentLine("    " + editor->logicalLine(row));
+    applyMarkdownAction(MdActIndent);
 }
 
 void MainWindow::outdentLine()
 {
-    int first, last;
-    if (selectedLineRange(&first, &last) && first != last) {
-        transformLineRange("outdent");
-        return;
-    }
-
-    int row, col;
-    editor->logicalCursor(&row, &col);
-    QString line = editor->logicalLine(row);
-    if (line.left(4) == "    ")
-        line = line.mid(4);
-    else if (line.left(1) == "\t")
-        line = line.mid(1);
-    replaceCurrentLine(line);
+    applyMarkdownAction(MdActOutdent);
 }
 
 void MainWindow::insertDate()
 {
-    replaceSelectionOrInsert(QDate::currentDate().toString());
-    touchEditor();
+    applyMarkdownAction(MdActDate);
 }
 
 void MainWindow::insertTime()
 {
-    replaceSelectionOrInsert(QTime::currentTime().toString());
-    touchEditor();
+    applyMarkdownAction(MdActTime);
 }
 
 void MainWindow::undoEdit()
@@ -1422,22 +1444,7 @@ void MainWindow::duplicateLine()
 
 void MainWindow::smartNewLine()
 {
-    int row, col;
-    editor->logicalCursor(&row, &col);
-    QString line = editor->logicalLine(row);
-    QString cont = continuationForLine(line);
-    if (!cont.isEmpty() && line.mid(col).stripWhiteSpace().isEmpty()) {
-        QString before = line.left(col).stripWhiteSpace();
-        QString prefix = cont.stripWhiteSpace();
-        if (before == prefix || before == "- [x]" || before == "- [X]") {
-            setCurrentLineText(row, "");
-            editor->setLogicalCursor(row, 0);
-            scheduleAutosave();
-            return;
-        }
-    }
-    editor->insert("\n" + cont);
-    scheduleAutosave();
+    applyMarkdownAction(MdActEnter);
 }
 
 void MainWindow::findText()
