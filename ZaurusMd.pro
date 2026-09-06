@@ -11,6 +11,7 @@ HEADERS = \
     src/TextPrompt.h \
     src/MdParser.h \
     src/TodoTxt.h \
+    src/TodoMd.h \
     src/FileUtil.h \
     src/MdRichText.h
 
@@ -23,6 +24,7 @@ SOURCES = \
     src/TextPrompt.cpp \
     src/MdParser.cpp \
     src/TodoTxt.cpp \
+    src/TodoMd.cpp \
     src/FileUtil.cpp \
     src/MdRichText.c \
     vendor/md4c/md4c.c \

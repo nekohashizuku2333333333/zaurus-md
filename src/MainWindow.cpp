@@ -6,6 +6,7 @@
 #include "MdParser.h"
 #include "MdView.h"
 #include "TextPrompt.h"
+#include "TodoMd.h"
 #include "TodoTxt.h"
 
 #include <qtopia/applnk.h>
@@ -21,6 +22,7 @@
 #include <qevent.h>
 #include <qlabel.h>
 #include <qlistview.h>
+#include <qlineedit.h>
 #include <qmessagebox.h>
 #include <qmultilineedit.h>
 #include <qobjectlist.h>
@@ -37,6 +39,25 @@
 #include <qwidgetstack.h>
 #include <qlist.h>
 
+class TodoListItem : public QCheckListItem {
+public:
+    TodoListItem(QListView *parent, const QString &text, int t, int s, bool step)
+        : QCheckListItem(parent, text, CheckBox), taskIndex(t), stepIndex(s), isStep(step) { setText(2, step ? "step" : "task"); }
+    TodoListItem(QListViewItem *parent, const QString &text, int t, int s, bool step)
+        : QCheckListItem(parent, text, CheckBox), taskIndex(t), stepIndex(s), isStep(step) { setText(2, step ? "step" : "task"); }
+    int taskIndex;
+    int stepIndex;
+    bool isStep;
+};
+
+static QString todayIsoDate()
+{
+    QDate d = QDate::currentDate();
+    QString s;
+    s.sprintf("%04d-%02d-%02d", d.year(), d.month(), d.day());
+    return s;
+}
+
 MainWindow::MainWindow(QWidget *parent, const char *name, WFlags flags)
     : QMainWindow(parent, name, flags),
       notesDir("/home/zaurus/Documents/Notes"),
@@ -46,10 +67,14 @@ MainWindow::MainWindow(QWidget *parent, const char *name, WFlags flags)
       documentSelector(0),
       stack(0),
       splitPane(0),
+      todoPane(0),
       editor(0),
       view(0),
       splitView(0),
+      todoList(0),
+      todoAdd(0),
       modeButton(0),
+      todoButton(0),
       splitButton(0),
       saveIndicator(0),
       fileBar(0),
@@ -59,6 +84,7 @@ MainWindow::MainWindow(QWidget *parent, const char *name, WFlags flags)
       todoFilter(""),
       darkTheme(false),
       hideDone(false),
+      todoViewMode(3),
       toolPage(0),
       fontSize(12)
 {
@@ -91,6 +117,7 @@ void MainWindow::buildUi()
     makeTopButton(docBar, "Open", "fileopen", SLOT(showBrowser()));
     modeButton = makeTopButton(docBar, "View", "TextEditor", SLOT(showView()));
     splitButton = makeTopButton(docBar, "Split", "forward", SLOT(showSplit()));
+    todoButton = makeTopButton(docBar, "Todo", "todo", SLOT(showTodo()));
     makeTopButton(docBar, "Save", "Save", SLOT(saveFile()));
     saveIndicator = new QLabel("", docBar);
     saveIndicator->setFont(QFont("song", 10));
@@ -123,10 +150,25 @@ void MainWindow::buildUi()
     connect(view, SIGNAL(toggleTask(int)), this, SLOT(toggleTask(int)));
     connect(splitView, SIGNAL(toggleTask(int)), this, SLOT(toggleTask(int)));
 
+    todoPane = new QVBox(stack);
+    todoList = new QListView(todoPane);
+    todoList->addColumn("Task");
+    todoList->addColumn("Info");
+    todoList->addColumn("Kind");
+    todoList->setColumnWidth(2, 0);
+    todoList->setRootIsDecorated(true);
+    todoList->setAllColumnsShowFocus(true);
+    connect(todoList, SIGNAL(clicked(QListViewItem *)), this, SLOT(todoItemClicked(QListViewItem *)));
+    todoAdd = new QLineEdit(todoPane);
+    todoAdd->setFont(QFont("song", 12));
+    todoAdd->setText("+ Add task");
+    connect(todoAdd, SIGNAL(returnPressed()), this, SLOT(addTodoFromInput()));
+
     stack->addWidget(browser, 0);
     stack->addWidget(splitPane, 1);
     stack->addWidget(view, 2);
     stack->addWidget(documentSelector, 3);
+    stack->addWidget(todoPane, 4);
 
     toolBar = new QWidget(root);
     toolBar->setFixedHeight(30);
@@ -255,6 +297,19 @@ bool MainWindow::confirmSaveIfNeeded()
 
 void MainWindow::rebuildToolBar()
 {
+    if (todoPane && stack && stack->visibleWidget() == todoPane) {
+        setToolButton(0, 0, "Day");
+        setToolButton(1, 0, "!");
+        setToolButton(2, 0, "Due");
+        setToolButton(3, 0, "All");
+        setToolButton(4, 0, "!*");
+        setToolButton(5, 0, "+Sub");
+        setToolButton(6, "editdelete", "Del");
+        setToolButton(7, "TextEditor", "Edit");
+        setToolButton(8, "Save", "Save");
+        setToolButton(9, "forward", "More");
+        return;
+    }
     if (toolPage == 0) {
         setToolButton(0, 0, "**");
         setToolButton(1, 0, "//");
@@ -372,6 +427,19 @@ void MainWindow::runTool(int index)
 {
     if (index == 9) {
         nextToolPage();
+        return;
+    }
+    if (todoPane && stack && stack->visibleWidget() == todoPane) {
+        if (index == 0) todoViewMode = 0;
+        else if (index == 1) todoViewMode = 1;
+        else if (index == 2) todoViewMode = 2;
+        else if (index == 3) todoViewMode = 3;
+        else if (index == 4) toggleTodoImportant();
+        else if (index == 5) addTodoStep();
+        else if (index == 6) deleteTodoCurrent();
+        else if (index == 7) showEditor();
+        else if (index == 8) saveFile();
+        refreshTodo();
         return;
     }
 
@@ -503,6 +571,7 @@ void MainWindow::loadDirectory(const QString &path, bool remember)
     if (currentDir == "/") {
         addLocationItem("Documents", "/home/zaurus/Documents");
         addLocationItem("Notes", notesDir);
+        addLocationItem("Todo", notesDir + "/Todo");
         addStorageLocations();
         addLocationItem("CF Card", "/mnt/cf");
         addLocationItem("SD Card", "/mnt/card");
@@ -514,10 +583,14 @@ void MainWindow::loadDirectory(const QString &path, bool remember)
     if (currentDir == notesDir) {
         QString quick = currentDir + "/QuickNote.md";
         QString todo = currentDir + "/todo.txt";
+        QString todoDir = currentDir + "/Todo";
         if (!QFileInfo(quick).exists())
             FileUtil::writeUtf8Atomic(quick, "# QuickNote\n\n");
         if (!QFileInfo(todo).exists())
             FileUtil::writeUtf8Atomic(todo, "");
+        FileUtil::ensureDir(todoDir);
+        if (!QFileInfo(todoDir + "/TODO.md").exists())
+            FileUtil::writeUtf8Atomic(todoDir + "/TODO.md", "");
     }
 
     QDir dir(currentDir);
@@ -606,7 +679,10 @@ void MainWindow::openFile(const QString &path)
     editor->setText(text);
     editor->setEdited(false);
     updateCaption();
-    showEditor();
+    if (isMarkdownTodoFile())
+        showTodo();
+    else
+        showEditor();
 }
 
 void MainWindow::openFileInNewWindow(const QString &path)
@@ -624,6 +700,13 @@ bool MainWindow::isEditableFileName(const QString &name) const
         || lower.right(5) == ".mkd"
         || lower.right(5) == ".text"
         || lower.right(9) == ".markdown";
+}
+
+bool MainWindow::isMarkdownTodoFile() const
+{
+    QFileInfo info(currentFile);
+    QString dir = info.dirPath(true);
+    return info.fileName().lower() == "todo.md" || dir.right(5) == "/Todo";
 }
 
 void MainWindow::showBrowser()
@@ -684,6 +767,7 @@ void MainWindow::showEditor()
     modeButton->setTextLabel("View", true);
     disconnect(modeButton, SIGNAL(clicked()), this, SLOT(showEditor()));
     connect(modeButton, SIGNAL(clicked()), this, SLOT(showView()));
+    rebuildToolBar();
     updateSaveIndicator();
     touchEditor();
 }
@@ -700,6 +784,7 @@ void MainWindow::showSplit()
     modeButton->setTextLabel("View", true);
     disconnect(modeButton, SIGNAL(clicked()), this, SLOT(showEditor()));
     connect(modeButton, SIGNAL(clicked()), this, SLOT(showView()));
+    rebuildToolBar();
     updateSaveIndicator();
     touchEditor();
 }
@@ -715,12 +800,185 @@ void MainWindow::showView()
     modeButton->setTextLabel("Edit", true);
     disconnect(modeButton, SIGNAL(clicked()), this, SLOT(showView()));
     connect(modeButton, SIGNAL(clicked()), this, SLOT(showEditor()));
+    rebuildToolBar();
 }
 
 void MainWindow::refreshView()
 {
     QString text = filteredPreviewText(editor->text());
     view->setText(MdParser::toRichText(text, 0), currentFile);
+}
+
+void MainWindow::showTodo()
+{
+    if (!isMarkdownTodoFile()) {
+        statusBar()->message("Todo view is for Todo/*.md", 1200);
+        return;
+    }
+    saveFile();
+    refreshTodo();
+    fileBar->hide();
+    docBar->show();
+    if (splitView)
+        splitView->hide();
+    stack->raiseWidget(todoPane);
+    modeButton->setText("Edit");
+    modeButton->setTextLabel("Edit", true);
+    disconnect(modeButton, SIGNAL(clicked()), this, SLOT(showView()));
+    disconnect(modeButton, SIGNAL(clicked()), this, SLOT(showEditor()));
+    connect(modeButton, SIGNAL(clicked()), this, SLOT(showEditor()));
+    rebuildToolBar();
+    updateSaveIndicator();
+    todoList->setFocus();
+}
+
+void MainWindow::refreshTodo()
+{
+    if (!todoList)
+        return;
+    QString today = todayIsoDate();
+    TodoMdDoc doc = TodoMd::parseTodo(editor->text(), today);
+    todoList->clear();
+    QListViewItem *doneGroup = 0;
+    int doneCount = 0;
+    TodoListItem *currentTaskItem = 0;
+    int currentTask = -1;
+    int stepDone = 0;
+    int stepTotal = 0;
+    for (int i = 0; i < (int)doc.entries.count(); ++i) {
+        TodoMdEntry e = doc.entries[i];
+        if (e.kind == TodoMdEntry::Task) {
+            if (currentTaskItem && stepTotal > 0)
+                currentTaskItem->setText(1, currentTaskItem->text(1) + " " + QString::number(stepDone) + "/" + QString::number(stepTotal));
+            currentTask = e.task;
+            stepDone = 0;
+            stepTotal = 0;
+            bool visible = true;
+            if (todoViewMode == 0)
+                visible = e.myday == today || e.due == today;
+            else if (todoViewMode == 1)
+                visible = e.important;
+            else if (todoViewMode == 2)
+                visible = !e.due.isEmpty();
+            if (!visible) {
+                currentTaskItem = 0;
+                continue;
+            }
+            QString info;
+            if (e.important)
+                info += "!";
+            if (!e.due.isEmpty()) {
+                if (!info.isEmpty())
+                    info += " ";
+                info += "due:" + e.due;
+            }
+            if (e.done) {
+                if (!doneGroup)
+                    doneGroup = new QListViewItem(todoList, "Done", "");
+                currentTaskItem = new TodoListItem(doneGroup, e.title, e.task, -1, false);
+                ++doneCount;
+            } else {
+                currentTaskItem = new TodoListItem(todoList, e.title, e.task, -1, false);
+            }
+            currentTaskItem->setOn(e.done);
+            currentTaskItem->setText(1, info);
+            currentTaskItem->setOpen(true);
+        } else if (e.kind == TodoMdEntry::Step && currentTaskItem && e.task == currentTask) {
+            TodoListItem *step = new TodoListItem(currentTaskItem, e.title, e.task, stepTotal, true);
+            step->setOn(e.done);
+            ++stepTotal;
+            if (e.done)
+                ++stepDone;
+        }
+    }
+    if (currentTaskItem && stepTotal > 0)
+        currentTaskItem->setText(1, currentTaskItem->text(1) + " " + QString::number(stepDone) + "/" + QString::number(stepTotal));
+    if (doneGroup) {
+        doneGroup->setText(0, "Done (" + QString::number(doneCount) + ")");
+        doneGroup->setOpen(false);
+    }
+}
+
+void MainWindow::saveTodoDoc()
+{
+    editor->setEdited(true);
+    saveFile();
+    refreshTodo();
+}
+
+void MainWindow::todoItemClicked(QListViewItem *item)
+{
+    if (!item || (item->text(2) != "task" && item->text(2) != "step"))
+        return;
+    TodoListItem *todo = (TodoListItem *)item;
+    QString today = todayIsoDate();
+    TodoMdDoc doc = TodoMd::parseTodo(editor->text(), today);
+    if (todo->isStep)
+        TodoMd::setStepDone(&doc, todo->taskIndex, todo->stepIndex, todo->isOn());
+    else
+        TodoMd::setTaskDone(&doc, todo->taskIndex, todo->isOn(), today);
+    editor->setText(TodoMd::serializeTodo(doc));
+    saveTodoDoc();
+}
+
+void MainWindow::addTodoFromInput()
+{
+    QString title = todoAdd->text().stripWhiteSpace();
+    if (title.left(1) == "+")
+        title = title.mid(1).stripWhiteSpace();
+    if (title.isEmpty())
+        return;
+    QString today = todayIsoDate();
+    TodoMdDoc doc = TodoMd::parseTodo(editor->text(), today);
+    TodoMd::addTask(&doc, title, todoViewMode == 0, today);
+    editor->setText(TodoMd::serializeTodo(doc));
+    todoAdd->setText("+ Add task");
+    saveTodoDoc();
+}
+
+void MainWindow::toggleTodoImportant()
+{
+    QListViewItem *raw = todoList->currentItem();
+    if (!raw || raw->text(2) != "task")
+        return;
+    TodoListItem *item = (TodoListItem *)raw;
+    QString today = todayIsoDate();
+    TodoMdDoc doc = TodoMd::parseTodo(editor->text(), today);
+    TodoMd::toggleImportant(&doc, item->taskIndex);
+    editor->setText(TodoMd::serializeTodo(doc));
+    saveTodoDoc();
+}
+
+void MainWindow::addTodoStep()
+{
+    QListViewItem *raw = todoList->currentItem();
+    if (!raw || (raw->text(2) != "task" && raw->text(2) != "step"))
+        return;
+    TodoListItem *item = (TodoListItem *)raw;
+    bool ok = false;
+    QString title = TextPrompt::getText("Step", "Title", "", &ok, this);
+    if (!ok || title.stripWhiteSpace().isEmpty())
+        return;
+    QString today = todayIsoDate();
+    TodoMdDoc doc = TodoMd::parseTodo(editor->text(), today);
+    TodoMd::addStep(&doc, item->taskIndex, title.stripWhiteSpace());
+    editor->setText(TodoMd::serializeTodo(doc));
+    saveTodoDoc();
+}
+
+void MainWindow::deleteTodoCurrent()
+{
+    QListViewItem *raw = todoList->currentItem();
+    if (!raw || raw->text(2) != "task")
+        return;
+    TodoListItem *item = (TodoListItem *)raw;
+    if (QMessageBox::warning(this, "Delete", "Delete selected task?", QMessageBox::Yes, QMessageBox::No) != QMessageBox::Yes)
+        return;
+    QString today = todayIsoDate();
+    TodoMdDoc doc = TodoMd::parseTodo(editor->text(), today);
+    TodoMd::deleteTask(&doc, item->taskIndex);
+    editor->setText(TodoMd::serializeTodo(doc));
+    saveTodoDoc();
 }
 
 void MainWindow::refreshSplit()

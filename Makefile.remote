@@ -18,6 +18,7 @@ SOURCES = \
 	src/TextPrompt.cpp \
 	src/MdParser.cpp \
 	src/TodoTxt.cpp \
+	src/TodoMd.cpp \
 	src/FileUtil.cpp \
 	moc_MainWindow.cpp \
 	moc_MdEdit.cpp \

@@ -29,6 +29,7 @@ for f in \
   src/TextPrompt.cpp \
   src/MdParser.cpp \
   src/TodoTxt.cpp \
+  src/TodoMd.cpp \
   src/FileUtil.cpp \
   moc_MainWindow.cpp \
   moc_MdEdit.cpp \
@@ -44,7 +45,7 @@ done
 
 "$CXX" $LFLAGS -o DIST/zaurusmd \
   src/main.o src/MainWindow.o src/MarkdownActions.o src/MdEdit.o src/MdView.o src/TextPrompt.o src/MdParser.o \
-  src/TodoTxt.o src/FileUtil.o moc_MainWindow.o moc_MdEdit.o moc_MdView.o \
+  src/TodoTxt.o src/TodoMd.o src/FileUtil.o moc_MainWindow.o moc_MdEdit.o moc_MdView.o \
   src/MdRichText.o vendor/md4c/md4c.o vendor/md4c/entity.o \
   $LIBS
 
