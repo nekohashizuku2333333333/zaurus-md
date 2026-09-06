@@ -725,8 +725,8 @@ void MainWindow::loadDirectory(const QString &path, bool remember)
         if (!QFileInfo(todo).exists())
             FileUtil::writeUtf8Atomic(todo, "");
         FileUtil::ensureDir(todoDir);
-        if (!QFileInfo(todoDir + "/TODO.md").exists())
-            FileUtil::writeUtf8Atomic(todoDir + "/TODO.md", "");
+        if (!QFileInfo(todoDir + "/Tasks.md").exists())
+            FileUtil::writeUtf8Atomic(todoDir + "/Tasks.md", "");
     }
 
     QDir dir(currentDir);
@@ -855,7 +855,8 @@ bool MainWindow::isMarkdownTodoFile() const
 {
     QFileInfo info(currentFile);
     QString dir = info.dirPath(true);
-    return info.fileName().lower() == "todo.md" || dir.right(5) == "/Todo";
+    QString lower = info.fileName().lower();
+    return lower == "tasks.md" || lower == "todo.md" || dir.right(5) == "/Todo";
 }
 
 void MainWindow::showBrowser()

@@ -43,6 +43,7 @@ public:
     static void moveTask(TodoMdDoc *doc, int task, int delta);
     static void demoteTaskToStep(TodoMdDoc *doc, int task);
     static void promoteStepToTask(TodoMdDoc *doc, int task, int step);
+    static int visibleTaskCount(const TodoMdDoc &doc, int viewMode, const QString &today);
 };
 
 #endif

@@ -3,7 +3,7 @@
 #include <qregexp.h>
 #include <qstringlist.h>
 
-static bool isTaskLine(const QString &line, bool *done, int *prefixLen)
+static bool isTaskBody(const QString &line, bool *done, int *prefixLen)
 {
     if (line.left(6) == "- [ ] ") {
         *done = false;
@@ -15,22 +15,29 @@ static bool isTaskLine(const QString &line, bool *done, int *prefixLen)
         *prefixLen = 6;
         return true;
     }
+    if (line.left(5) == "-[ ] ") {
+        *done = false;
+        *prefixLen = 5;
+        return true;
+    }
+    if (line.left(5) == "-[x] " || line.left(5) == "-[X] ") {
+        *done = true;
+        *prefixLen = 5;
+        return true;
+    }
     return false;
 }
 
-static bool isStepLine(const QString &line, bool *done, int *prefixLen)
+static int taskIndentLen(const QString &line)
 {
-    if (line.left(8) == "  - [ ] ") {
-        *done = false;
-        *prefixLen = 8;
-        return true;
-    }
-    if (line.left(8) == "  - [x] " || line.left(8) == "  - [X] ") {
-        *done = true;
-        *prefixLen = 8;
-        return true;
-    }
-    return false;
+    int p = 0;
+    while (p < (int)line.length() && line[p] == ' ')
+        ++p;
+    if (p >= 1 && p <= 3)
+        return p;
+    if (line.left(1) == "\t")
+        return 1;
+    return 0;
 }
 
 static bool isDateToken(const QString &token, const char *name)
@@ -46,21 +53,59 @@ static void parseTitleMeta(TodoMdEntry *e, const QString &src, const QString &to
 {
     QStringList parts = QStringList::split(' ', src, true);
     QStringList title;
+    bool foundDue = false;
+    bool foundMyday = false;
+    bool foundDone = false;
+    bool foundImportant = false;
     for (int i = 0; i < (int)parts.count(); ++i) {
         QString p = parts[i];
+        title.append(p);
+    }
+    for (int i = (int)title.count() - 1; i >= 0; --i) {
+        QString p = title[i];
+        bool recognized = false;
+        bool keepAsTitle = false;
         if (p == "!") {
-            e->important = true;
+            if (!foundImportant) {
+                e->important = true;
+                foundImportant = true;
+                recognized = true;
+            } else {
+                keepAsTitle = true;
+            }
         } else if (isDateToken(p, "due:")) {
-            e->due = p.mid(4);
+            if (!foundDue) {
+                e->due = p.mid(4);
+                foundDue = true;
+                recognized = true;
+            } else {
+                keepAsTitle = true;
+            }
         } else if (isDateToken(p, "myday:")) {
-            QString d = p.mid(6);
-            if (d == today)
-                e->myday = d;
+            if (!foundMyday) {
+                QString d = p.mid(6);
+                if (d == today)
+                    e->myday = d;
+                foundMyday = true;
+                recognized = true;
+            } else {
+                keepAsTitle = true;
+            }
         } else if (isDateToken(p, "done:")) {
-            if (e->done)
-                e->doneDate = p.mid(5);
+            if (!foundDone) {
+                if (e->done)
+                    e->doneDate = p.mid(5);
+                foundDone = true;
+                recognized = true;
+            } else {
+                keepAsTitle = true;
+            }
+        }
+        if (recognized) {
+            title.remove(title.at(i));
         } else {
-            title.append(p);
+            if (!keepAsTitle)
+                break;
         }
     }
     e->title = title.join(" ");
@@ -136,13 +181,14 @@ TodoMdDoc TodoMd::parseTodo(const QString &text, const QString &today)
         e.raw = line;
         int prefixLen = 0;
         bool done = false;
-        if (!inFence && isTaskLine(line, &done, &prefixLen)) {
+        int ind = taskIndentLen(line);
+        if (!inFence && isTaskBody(line, &done, &prefixLen)) {
             ++task;
             e.kind = TodoMdEntry::Task;
             e.task = task;
             e.done = done;
             parseTitleMeta(&e, line.mid(prefixLen), today);
-        } else if (!inFence && isStepLine(line, &done, &prefixLen)) {
+        } else if (!inFence && ind > 0 && isTaskBody(line.mid(ind), &done, &prefixLen)) {
             if (task < 0) {
                 ++task;
                 e.kind = TodoMdEntry::Task;
@@ -152,8 +198,8 @@ TodoMdDoc TodoMd::parseTodo(const QString &text, const QString &today)
                 e.task = task;
             }
             e.done = done;
-            parseTitleMeta(&e, line.mid(prefixLen), today);
-        } else if (!inFence && task >= 0 && line.left(2) == "  ") {
+            parseTitleMeta(&e, line.mid(ind + prefixLen), today);
+        } else if (!inFence && task >= 0 && ind > 0) {
             e.kind = TodoMdEntry::Note;
             e.task = task;
             e.raw = line;
@@ -371,12 +417,35 @@ void TodoMd::demoteTaskToStep(TodoMdDoc *doc, int task)
     int i = entryForTask(*doc, task);
     if (i < 0)
         return;
+    for (int n = i + 1; n < (int)doc->entries.count() && doc->entries[n].kind != TodoMdEntry::Task; ++n)
+        if (doc->entries[n].kind == TodoMdEntry::Step)
+            return;
     TodoMdEntry e = doc->entries[i];
     e.kind = TodoMdEntry::Step;
     e.task = task - 1;
     e.doneDate = QString::null;
     doc->entries[i] = e;
     renumberTasks(doc);
+}
+
+int TodoMd::visibleTaskCount(const TodoMdDoc &doc, int viewMode, const QString &today)
+{
+    int n = 0;
+    for (int i = 0; i < (int)doc.entries.count(); ++i) {
+        TodoMdEntry e = doc.entries[i];
+        if (e.kind != TodoMdEntry::Task)
+            continue;
+        bool visible = true;
+        if (viewMode == 0)
+            visible = e.myday == today || e.due == today;
+        else if (viewMode == 1)
+            visible = e.important;
+        else if (viewMode == 2)
+            visible = !e.due.isEmpty();
+        if (visible)
+            ++n;
+    }
+    return n;
 }
 
 void TodoMd::promoteStepToTask(TodoMdDoc *doc, int task, int step)

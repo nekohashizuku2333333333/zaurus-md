@@ -62,6 +62,14 @@ static void golden()
     eq("stale myday ignored", TodoMd::serializeTodo(TodoMd::parseTodo("- [ ] buy myday:2020-01-01\n", today)), "- [ ] buy\n");
     eq("unchecked done stripped", TodoMd::serializeTodo(TodoMd::parseTodo("- [ ] buy done:2020-01-01\n", today)), "- [ ] buy\n");
     eq("orphan step becomes task", TodoMd::serializeTodo(TodoMd::parseTodo("  - [ ] orphan\n", today)), "- [ ] orphan\n");
+    eq("compact checkbox", TodoMd::serializeTodo(TodoMd::parseTodo("-[ ] compact\n", today)), "- [ ] compact\n");
+    eq("upper done", TodoMd::serializeTodo(TodoMd::parseTodo("- [X] big\n", today)), "- [x] big\n");
+    eq("one-space step", TodoMd::serializeTodo(TodoMd::parseTodo("- [ ] a\n - [ ] s\n", today)), "- [ ] a\n  - [ ] s\n");
+    eq("three-space note", TodoMd::serializeTodo(TodoMd::parseTodo("- [ ] a\n   note\n", today)), "- [ ] a\n   note\n");
+    eq("tab step", TodoMd::serializeTodo(TodoMd::parseTodo("- [ ] a\n\t- [ ] s\n", today)), "- [ ] a\n  - [ ] s\n");
+    eq("invalid due kept", TodoMd::serializeTodo(TodoMd::parseTodo("- [ ] a due:bad\n", today)), "- [ ] a due:bad\n");
+    eq("middle bang kept", TodoMd::serializeTodo(TodoMd::parseTodo("- [ ] a ! b\n", today)), "- [ ] a ! b\n");
+    eq("duplicate due keeps old", TodoMd::serializeTodo(TodoMd::parseTodo("- [ ] a due:2026-01-01 due:2026-02-02\n", today)), "- [ ] a due:2026-01-01 due:2026-02-02\n");
 
     TodoMdDoc doc = TodoMd::parseTodo("- [ ] a\n  - [ ] s\n  note\n- [ ] b\n", today);
     TodoMd::setTaskDone(&doc, 0, true, today);
@@ -81,11 +89,17 @@ static void golden()
     TodoMd::toggleMyDay(&doc, 0, today);
     eq("myday toggle off", TodoMd::serializeTodo(doc), "- [ ] bb ! due:2026-10-01\n- [ ] a\n  - [x] s\n  note\n");
     TodoMd::demoteTaskToStep(&doc, 1);
-    eq("demote", TodoMd::serializeTodo(doc), "- [ ] bb ! due:2026-10-01\n  - [ ] a\n  - [x] s\n  note\n");
-    TodoMd::promoteStepToTask(&doc, 0, 0);
-    eq("promote", TodoMd::serializeTodo(doc), "- [ ] bb ! due:2026-10-01\n- [ ] a\n  - [x] s\n  note\n");
+    eq("demote with steps rejected", TodoMd::serializeTodo(doc), "- [ ] bb ! due:2026-10-01\n- [ ] a\n  - [x] s\n  note\n");
     TodoMd::deleteStep(&doc, 1, 0);
     eq("delete step", TodoMd::serializeTodo(doc), "- [ ] bb ! due:2026-10-01\n- [ ] a\n  note\n");
+    doc = TodoMd::parseTodo("- [ ] a\n  - [ ] s\n- [ ] b\n", today);
+    TodoMd::demoteTaskToStep(&doc, 0);
+    eq("demote first rejected", TodoMd::serializeTodo(doc), "- [ ] a\n  - [ ] s\n- [ ] b\n");
+    TodoMd::demoteTaskToStep(&doc, 1);
+    eq("demote leaf", TodoMd::serializeTodo(doc), "- [ ] a\n  - [ ] s\n  - [ ] b\n");
+    assert(TodoMd::visibleTaskCount(TodoMd::parseTodo("- [ ] a !\n- [ ] b due:2026-09-06\n- [ ] c myday:2026-09-06\n", today), 0, today) == 2);
+    assert(TodoMd::visibleTaskCount(TodoMd::parseTodo("- [ ] a !\n- [ ] b due:2026-09-06\n", today), 1, today) == 1);
+    assert(TodoMd::visibleTaskCount(TodoMd::parseTodo("- [ ] a !\n- [ ] b due:2026-09-06\n", today), 2, today) == 1);
 }
 
 static void fuzz()
