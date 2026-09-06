@@ -42,9 +42,13 @@ The current milestone is a compact Markor-style Markdown notebook:
 - fenced code is rendered as one preformatted block without visible fences;
   backtick/tilde fences, CRLF, blank lines, indentation, unfinished fences,
   escaped punctuation and multi-backtick inline code are handled
-- Markdown to Qt rich text conversion with headings, inline strong/emphasis,
-  code, links, images, strikeout, quotes, rules, bullet lists, numbered lists,
-  and task links
+- MD4C 0.5.3 CommonMark/GFM parsing with a Qt2 rich text adapter: Setext/ATX
+  headings, soft/hard breaks, nested lists and quotes, reference links,
+  tables with alignment, entities, nested emphasis and task links
+- literal raw HTML, blocked application-command URLs from source links, and
+  source-accurate task toggles (including nested tasks and CRLF)
+- relative preview images resolve against the current Markdown file; code
+  and inline code explicitly retain the device's `song` font family
 - UTF-8 file read/write with atomic save
 - new file, new folder, save, save as, rename, delete, autosave
 - formatting toolbar for bold, italic, inline code, code blocks, headings,
@@ -80,3 +84,9 @@ On the SDK host, run `sh scripts/test-remote.sh` from the source directory for
 ARM/QEMU parser regression tests. The test-only runtime helper library is not
 included in the application package. Visual line-number alignment and touch
 interaction still require a device check at 640x480 and in magnified mode.
+
+Run `sh scripts/test-corpus.sh` locally for sanitizer-enabled coverage of the
+user-supplied corpus. Its recorded outputs can also be checked on the SDK host
+with `sh scripts/test-arm-corpus.sh`. See [corpus coverage](doc/corpus-coverage.md)
+for implemented syntax, unsupported extensions, and device validation limits.
+The vendored parser's MIT license is included in the IPK.

@@ -5,7 +5,7 @@ CC ?= arm-cacko-linux-gnu-gcc
 MOC ?= $(QTDIR)/src/moc/moc
 
 CXXFLAGS = -pipe -DQT_QWS_SL5XXX -DQT_QWS_CUSTOM -DQWS -DQT_NO_PROPERTIES -DQT_NO_DRAGANDDROP -fno-exceptions -fno-rtti -Wall -W -O2 -DNO_DEBUG
-INCPATH = -Isrc -I$(QPESDK)/include -I$(QTDIR)/include
+INCPATH = -Isrc -Ivendor/md4c -I$(QPESDK)/include -I$(QTDIR)/include
 LFLAGS =
 LIBS = -Lcompat-lib -L$(QTDIR)/lib -lqpe -lqte -ljpeg
 
@@ -22,7 +22,7 @@ SOURCES = \
 	moc_MdEdit.cpp \
 	moc_MdView.cpp
 
-OBJECTS = $(SOURCES:.cpp=.o)
+OBJECTS = $(SOURCES:.cpp=.o) src/MdRichText.o vendor/md4c/md4c.o vendor/md4c/entity.o
 TARGET = DIST/zaurusmd
 
 all: $(TARGET)
@@ -44,6 +44,9 @@ moc_MdView.cpp: src/MdView.h
 .cpp.o:
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o $@ $<
 
+.c.o:
+	$(CC) -c -O2 -Wall $(INCPATH) -o $@ $<
+
 clean:
-	rm -f src/*.o *.o moc_MainWindow.cpp moc_MdEdit.cpp moc_MdView.cpp
+	rm -f src/*.o vendor/md4c/*.o *.o moc_MainWindow.cpp moc_MdEdit.cpp moc_MdView.cpp
 	rm -rf DIST IPK *.ipk control.tar.gz data.tar.gz debian-binary

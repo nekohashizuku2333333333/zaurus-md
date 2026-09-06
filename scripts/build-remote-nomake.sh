@@ -8,7 +8,7 @@ export QPESDK=/opt/murphytalk-sdk/qtopia-free-1.7.0
 CXX=arm-cacko-linux-gnu-g++
 MOC="$QTDIR/src/moc/moc"
 CXXFLAGS="-pipe -DQT_QWS_SL5XXX -DQT_QWS_CUSTOM -DQWS -DQT_NO_PROPERTIES -DQT_NO_DRAGANDDROP -fno-exceptions -fno-rtti -Wall -W -O2 -DNO_DEBUG"
-INCPATH="-Isrc -I$QPESDK/include -I$QTDIR/include"
+INCPATH="-Isrc -Ivendor/md4c -I$QPESDK/include -I$QTDIR/include"
 LIBS="-Lcompat-lib -L$QTDIR/lib -lqpe -lqte -ljpeg"
 LFLAGS=""
 
@@ -37,9 +37,14 @@ do
   "$CXX" -c $CXXFLAGS $INCPATH -o "$o" "$f"
 done
 
+for f in src/MdRichText.c vendor/md4c/md4c.c vendor/md4c/entity.c; do
+    arm-cacko-linux-gnu-gcc -O2 -Wall -Isrc -Ivendor/md4c -c "$f" -o "${f%.c}.o"
+done
+
 "$CXX" $LFLAGS -o DIST/zaurusmd \
   src/main.o src/MainWindow.o src/MdEdit.o src/MdView.o src/TextPrompt.o src/MdParser.o \
   src/TodoTxt.o src/FileUtil.o moc_MainWindow.o moc_MdEdit.o moc_MdView.o \
+  src/MdRichText.o vendor/md4c/md4c.o vendor/md4c/entity.o \
   $LIBS
 
 if [ "${BUILD_PACKAGE:-1}" = 1 ]; then

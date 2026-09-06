@@ -10,7 +10,8 @@ HEADERS = \
     src/TextPrompt.h \
     src/MdParser.h \
     src/TodoTxt.h \
-    src/FileUtil.h
+    src/FileUtil.h \
+    src/MdRichText.h
 
 SOURCES = \
     src/main.cpp \
@@ -20,7 +21,10 @@ SOURCES = \
     src/TextPrompt.cpp \
     src/MdParser.cpp \
     src/TodoTxt.cpp \
-    src/FileUtil.cpp
+    src/FileUtil.cpp \
+    src/MdRichText.c \
+    vendor/md4c/md4c.c \
+    vendor/md4c/entity.c
 
-INCLUDEPATH += $(QPEDIR)/include
+INCLUDEPATH += $(QPEDIR)/include vendor/md4c
 LIBS += -lqpe

@@ -42,5 +42,34 @@ int main()
           "task links retain source line numbers after code");
     check(MdParser::toggleTaskLine(&md, 3) && md.right(10) == "- [x] task",
           "task toggle updates the source line");
+    html = MdParser::toRichText("#no-space\n\nname\n===", 0);
+    check(html.find("<p>#no-space</p>") >= 0 && html.find("<h1>name</h1>") >= 0,
+          "CommonMark heading boundaries and Setext");
+    html = MdParser::toRichText("a | b\n:--- | ---:\nx | y", 0);
+    check(html.find("<table") >= 0 && html.find("<td align=\"right\">y</td>") >= 0,
+          "GFM table alignment uses Qt2 attributes");
+    html = MdParser::toRichText("3) third\n   - child\n4) fourth", 0);
+    check(html.find("<ol start=\"3\">") >= 0 && html.find("<ul><li>child</li></ul>") >= 0,
+          "nested lists preserve ordered start");
+    html = MdParser::toRichText("[label][REF]\n\n[ref]: https://x \"tip\"", 0);
+    check(html.find("<a href=\"https://x\" title=\"tip\">label</a>") >= 0,
+          "reference links resolve without rendering definitions");
+    html = MdParser::toRichText("[fake](toggle:0) <script>x</script>", 0);
+    check(html.find("href=") < 0 && html.find("<script>") < 0,
+          "source text cannot synthesize application commands or raw HTML");
+    QString unicode = QString::fromUtf8("\344\270\255\346\226\207");
+    check(MdParser::toRichText(unicode, 0) == "<html><body><p>" + unicode + "</p></body></html>",
+          "Qt2 UTF8 conversion has no trailing bytes");
+    QString nul = "before";
+    nul += QChar(0);
+    nul += "after";
+    html = MdParser::toRichText(nul, 0);
+    check(html.find("after") >= 0 && html.find(QChar(0xfffd)) >= 0,
+          "embedded NUL does not truncate Qt2 input");
+    md = "line\r\n> - [ ] nested\r\n";
+    check(MdParser::toggleTaskLine(&md, 1) && md == "line\r\n> - [x] nested\r\n",
+          "nested task toggles preserve CRLF source");
+    md = "```\n- [ ] code\n```";
+    check(!MdParser::toggleTaskLine(&md, 1), "task toggle rejects fenced code");
     return failures ? 1 : 0;
 }

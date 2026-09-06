@@ -528,9 +528,8 @@ void MainWindow::showView()
 
 void MainWindow::refreshView()
 {
-    QValueList<MdBlockMap> map;
     QString text = filteredPreviewText(editor->text());
-    view->setText(MdParser::toRichText(text, &map));
+    view->setText(MdParser::toRichText(text, 0), currentFile);
 }
 
 void MainWindow::saveFile()
