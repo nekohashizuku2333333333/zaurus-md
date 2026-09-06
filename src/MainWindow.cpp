@@ -242,69 +242,69 @@ bool MainWindow::confirmSaveIfNeeded()
 void MainWindow::rebuildToolBar()
 {
     if (toolPage == 0) {
-        setToolLabel(0, "B");
-        setToolLabel(1, "I");
+        setToolLabel(0, "**");
+        setToolLabel(1, "//");
         setToolLabel(2, "`");
-        setToolLabel(3, "H");
+        setToolLabel(3, "#");
         setToolLabel(4, "-");
         setToolLabel(5, "1.");
         setToolLabel(6, "[ ]");
         setToolLabel(7, ">");
         setToolLabel(8, "---");
     } else if (toolPage == 1) {
-        setToolLabel(0, "Link");
-        setToolLabel(1, "Img");
-        setToolLabel(2, "Tbl");
-        setToolLabel(3, "Code");
-        setToolLabel(4, "Date");
-        setToolLabel(5, "Time");
+        setToolLabel(0, "[]");
+        setToolLabel(1, "!");
+        setToolLabel(2, "| |");
+        setToolLabel(3, "{ }");
+        setToolLabel(4, "D");
+        setToolLabel(5, "T");
         setToolLabel(6, "A+");
         setToolLabel(7, "A-");
-        setToolLabel(8, "Theme");
+        setToolLabel(8, "Sun");
     } else if (toolPage == 2) {
-        setToolLabel(0, "Find");
-        setToolLabel(1, "Next");
-        setToolLabel(2, "R1");
-        setToolLabel(3, "All");
-        setToolLabel(4, "Undo");
-        setToolLabel(5, "Redo");
-        setToolLabel(6, "Dup");
-        setToolLabel(7, "Sel");
+        setToolLabel(0, "?");
+        setToolLabel(1, "?>");
+        setToolLabel(2, "R");
+        setToolLabel(3, "R*");
+        setToolLabel(4, "<-");
+        setToolLabel(5, "->");
+        setToolLabel(6, "++");
+        setToolLabel(7, "All");
         setToolLabel(8, "Paste");
     } else if (toolPage == 3) {
         setToolLabel(0, ">>");
         setToolLabel(1, "<<");
-        setToolLabel(2, "Up");
-        setToolLabel(3, "Dn");
+        setToolLabel(2, "^");
+        setToolLabel(3, "v");
         setToolLabel(4, "Copy");
         setToolLabel(5, "Cut");
         setToolLabel(6, "Paste");
-        setToolLabel(7, "Date");
-        setToolLabel(8, "Time");
+        setToolLabel(7, "D");
+        setToolLabel(8, "T");
     } else {
         if (toolPage == 4) {
-            setToolLabel(0, "Done");
-            setToolLabel(1, "Chk");
-            setToolLabel(2, "Open");
+            setToolLabel(0, "[x]");
+            setToolLabel(1, "x+");
+            setToolLabel(2, "x-");
             setToolLabel(3, "A");
             setToolLabel(4, "B");
             setToolLabel(5, "C");
             setToolLabel(6, "+");
             setToolLabel(7, "@");
-            setToolLabel(8, "Due");
+            setToolLabel(8, "!");
         } else {
-            setToolLabel(0, "Sort");
+            setToolLabel(0, "A/Z");
             setToolLabel(1, "Hide");
             setToolLabel(2, "F+");
             setToolLabel(3, "F@");
-            setToolLabel(4, "FClr");
+            setToolLabel(4, "F-");
             setToolLabel(5, "End");
-            setToolLabel(6, "Clr");
+            setToolLabel(6, "Del");
             setToolLabel(7, "A+");
             setToolLabel(8, "A-");
         }
     }
-    setToolLabel(9, "More");
+    setToolLabel(9, "...");
     toolBar->update();
 }
 
@@ -868,6 +868,43 @@ void MainWindow::wrapSelection(const QString &before, const QString &after)
     scheduleAutosave();
 }
 
+void MainWindow::toggleInlineMarkup(const QString &before, const QString &after)
+{
+    int line1, col1, line2, col2;
+    if (editor->selectionRegion(&line1, &col1, &line2, &col2)) {
+        QString sel = editor->selectionText();
+        if (sel.left(before.length()) == before && sel.right(after.length()) == after
+                && sel.length() >= before.length() + after.length()) {
+            QString inner = sel.mid(before.length(), sel.length() - before.length() - after.length());
+            editor->insert(inner);
+            editor->selectLogical(line1, col1, line1, col1 + inner.length());
+        } else {
+            editor->insert(before + sel + after);
+            editor->selectLogical(line1, col1 + before.length(), line1, col1 + before.length() + sel.length());
+        }
+        touchEditor();
+        scheduleAutosave();
+        return;
+    }
+
+    int line, col;
+    editor->logicalCursor(&line, &col);
+    QString text = editor->logicalLine(line);
+    int beforeLen = before.length();
+    int afterLen = after.length();
+
+    if (col >= beforeLen && col + afterLen <= (int)text.length()
+            && text.mid(col - beforeLen, beforeLen) == before
+            && text.mid(col, afterLen) == after) {
+        QString next = text.left(col - beforeLen) + text.mid(col + afterLen);
+        replaceCurrentLine(next);
+        editor->setLogicalCursor(line, col - beforeLen);
+        return;
+    }
+
+    wrapSelection(before, after);
+}
+
 void MainWindow::setCurrentLineText(int lineNo, const QString &line)
 {
     editor->selectLogical(lineNo, 0, lineNo, editor->logicalLine(lineNo).length());
@@ -1091,17 +1128,17 @@ void MainWindow::applyTheme()
 
 void MainWindow::wrapBold()
 {
-    wrapSelection("**", "**");
+    toggleInlineMarkup("**", "**");
 }
 
 void MainWindow::wrapItalic()
 {
-    wrapSelection("*", "*");
+    toggleInlineMarkup("*", "*");
 }
 
 void MainWindow::wrapCode()
 {
-    wrapSelection("`", "`");
+    toggleInlineMarkup("`", "`");
 }
 
 void MainWindow::cycleHeading()

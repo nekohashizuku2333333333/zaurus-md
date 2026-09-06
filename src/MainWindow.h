@@ -137,6 +137,7 @@ private:
     QString selectedText() const;
     void replaceSelectionOrInsert(const QString &text);
     void wrapSelection(const QString &before, const QString &after);
+    void toggleInlineMarkup(const QString &before, const QString &after);
     void replaceCurrentLine(const QString &line);
     void setCurrentLineText(int lineNo, const QString &line);
     void applyLinePrefix(const QString &prefix, bool numbered);
