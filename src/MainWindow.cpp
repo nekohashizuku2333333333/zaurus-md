@@ -9,6 +9,7 @@
 
 #include <qtopia/applnk.h>
 #include <qtopia/fileselector.h>
+#include <qtopia/resource.h>
 #include <qtopia/storage.h>
 
 #include <qdir.h>
@@ -27,8 +28,8 @@
 #include <qstatusbar.h>
 #include <qdatetime.h>
 #include <qfont.h>
+#include <qpixmap.h>
 #include <qtimer.h>
-#include <qtoolbar.h>
 #include <qtoolbutton.h>
 #include <qvbox.h>
 #include <qhbox.h>
@@ -43,9 +44,12 @@ MainWindow::MainWindow(QWidget *parent, const char *name, WFlags flags)
       browser(0),
       documentSelector(0),
       stack(0),
+      splitPane(0),
       editor(0),
       view(0),
+      splitView(0),
       modeButton(0),
+      splitButton(0),
       saveIndicator(0),
       fileBar(0),
       docBar(0),
@@ -71,21 +75,22 @@ void MainWindow::buildUi()
 
     fileBar = new QWidget(root);
     fileBar->setFixedHeight(32);
-    makeTopButton(fileBar, "Back", SLOT(goBack()));
-    makeTopButton(fileBar, "Fwd", SLOT(goForward()));
-    makeTopButton(fileBar, "Up", SLOT(goUp()));
-    makeTopButton(fileBar, "New", SLOT(newFile()));
-    makeTopButton(fileBar, "Dir", SLOT(newFolder()));
-    makeTopButton(fileBar, "Ren", SLOT(renameFile()));
-    makeTopButton(fileBar, "Del", SLOT(deleteFile()));
-    makeTopButton(fileBar, "Docs", SLOT(showDocumentLibrary()));
-    makeTopButton(fileBar, "Root", SLOT(showRoot()));
+    makeTopButton(fileBar, "Back", "back", SLOT(goBack()));
+    makeTopButton(fileBar, "Fwd", "forward", SLOT(goForward()));
+    makeTopButton(fileBar, "Up", "folderup", SLOT(goUp()));
+    makeTopButton(fileBar, "New", "new", SLOT(newFile()));
+    makeTopButton(fileBar, "Dir", "foldernew", SLOT(newFolder()));
+    makeTopButton(fileBar, "Ren", "edit", SLOT(renameFile()));
+    makeTopButton(fileBar, "Del", "editdelete", SLOT(deleteFile()));
+    makeTopButton(fileBar, "Docs", "fileopen", SLOT(showDocumentLibrary()));
+    makeTopButton(fileBar, "Root", "home", SLOT(showRoot()));
 
     docBar = new QWidget(root);
     docBar->setFixedHeight(32);
-    makeTopButton(docBar, "<", SLOT(showBrowser()));
-    modeButton = makeTopButton(docBar, "View", SLOT(showView()));
-    makeTopButton(docBar, "Save", SLOT(saveFile()));
+    makeTopButton(docBar, "Open", "fileopen", SLOT(showBrowser()));
+    modeButton = makeTopButton(docBar, "View", "TextEditor", SLOT(showView()));
+    splitButton = makeTopButton(docBar, "Split", "forward", SLOT(showSplit()));
+    makeTopButton(docBar, "Save", "Save", SLOT(saveFile()));
     saveIndicator = new QLabel("", docBar);
     saveIndicator->setFont(QFont("song", 10));
     saveIndicator->setAlignment(AlignRight | AlignVCenter);
@@ -101,8 +106,11 @@ void MainWindow::buildUi()
     documentSelector = new FileSelector("text/*", stack, "documentSelector", FALSE, FALSE);
     connect(documentSelector, SIGNAL(fileSelected(const DocLnk &)), this, SLOT(openDocumentLibraryFile(const DocLnk &)));
 
-    editor = new MdEdit(stack);
-    QPushButton *linesButton = makeTopButton(docBar, "Lines", 0);
+    splitPane = new QHBox(stack);
+    editor = new MdEdit(splitPane);
+    splitView = new MdView(splitPane);
+    splitView->hide();
+    QToolButton *linesButton = makeTopButton(docBar, "Lines", "textedit", 0);
     linesButton->setToggleButton(true);
     connect(linesButton, SIGNAL(clicked()), editor, SLOT(toggleLineNumbers()));
     editor->setUndoEnabled(true);
@@ -112,16 +120,18 @@ void MainWindow::buildUi()
     connect(editor, SIGNAL(requestNewLine()), this, SLOT(smartNewLine()));
     view = new MdView(stack);
     connect(view, SIGNAL(toggleTask(int)), this, SLOT(toggleTask(int)));
+    connect(splitView, SIGNAL(toggleTask(int)), this, SLOT(toggleTask(int)));
 
     stack->addWidget(browser, 0);
-    stack->addWidget(editor, 1);
+    stack->addWidget(splitPane, 1);
     stack->addWidget(view, 2);
     stack->addWidget(documentSelector, 3);
 
     toolBar = new QWidget(root);
     toolBar->setFixedHeight(30);
     for (int i = 0; i < 10; ++i) {
-        toolButtons[i] = new QPushButton("", toolBar);
+        toolButtons[i] = new QToolButton(toolBar);
+        toolButtons[i]->setAutoRaise(true);
         toolButtons[i]->setFont(QFont("song", 10));
     }
     connect(toolButtons[0], SIGNAL(clicked()), this, SLOT(tool0()));
@@ -150,12 +160,15 @@ void MainWindow::buildUi()
     updateSaveIndicator();
 }
 
-QPushButton *MainWindow::makeButton(QWidget *parent, const char *text, const char *slot)
+QToolButton *MainWindow::makeButton(QWidget *parent, const char *text, const char *slot)
 {
-    QPushButton *button = new QPushButton(text, parent);
+    QToolButton *button = new QToolButton(parent);
+    button->setText(text);
+    button->setTextLabel(text, true);
+    button->setUsesTextLabel(true);
     button->setFont(QFont("song", 10));
     button->setFixedSize(38, 24);
-    QObjectList *siblings = parent->queryList("QPushButton");
+    QObjectList *siblings = parent->queryList("QToolButton");
     int index = siblings ? siblings->count() - 1 : 0;
     delete siblings;
     button->move(index * 39, 3);
@@ -242,69 +255,69 @@ bool MainWindow::confirmSaveIfNeeded()
 void MainWindow::rebuildToolBar()
 {
     if (toolPage == 0) {
-        setToolLabel(0, "**");
-        setToolLabel(1, "//");
-        setToolLabel(2, "`");
-        setToolLabel(3, "#");
-        setToolLabel(4, "-");
-        setToolLabel(5, "1.");
-        setToolLabel(6, "[ ]");
-        setToolLabel(7, ">");
-        setToolLabel(8, "---");
+        setToolButton(0, 0, "**");
+        setToolButton(1, 0, "//");
+        setToolButton(2, 0, "`");
+        setToolButton(3, 0, "#");
+        setToolButton(4, 0, "-");
+        setToolButton(5, 0, "1.");
+        setToolButton(6, 0, "[ ]");
+        setToolButton(7, 0, ">");
+        setToolButton(8, 0, "---");
     } else if (toolPage == 1) {
-        setToolLabel(0, "[]");
-        setToolLabel(1, "!");
-        setToolLabel(2, "| |");
-        setToolLabel(3, "{ }");
-        setToolLabel(4, "D");
-        setToolLabel(5, "T");
-        setToolLabel(6, "A+");
-        setToolLabel(7, "A-");
-        setToolLabel(8, "Sun");
+        setToolButton(0, 0, "[]");
+        setToolButton(1, 0, "!");
+        setToolButton(2, 0, "| |");
+        setToolButton(3, 0, "{ }");
+        setToolButton(4, 0, "D");
+        setToolButton(5, 0, "T");
+        setToolButton(6, 0, "A+");
+        setToolButton(7, 0, "A-");
+        setToolButton(8, 0, "Sun");
     } else if (toolPage == 2) {
-        setToolLabel(0, "?");
-        setToolLabel(1, "?>");
-        setToolLabel(2, "R");
-        setToolLabel(3, "R*");
-        setToolLabel(4, "<-");
-        setToolLabel(5, "->");
-        setToolLabel(6, "++");
-        setToolLabel(7, "All");
-        setToolLabel(8, "Paste");
+        setToolButton(0, "find", "?");
+        setToolButton(1, "find_icon", "?>");
+        setToolButton(2, 0, "R");
+        setToolButton(3, 0, "R*");
+        setToolButton(4, "back", "<-");
+        setToolButton(5, "forward", "->");
+        setToolButton(6, "copy", "++");
+        setToolButton(7, 0, "All");
+        setToolButton(8, "paste", "Paste");
     } else if (toolPage == 3) {
-        setToolLabel(0, ">>");
-        setToolLabel(1, "<<");
-        setToolLabel(2, "^");
-        setToolLabel(3, "v");
-        setToolLabel(4, "Copy");
-        setToolLabel(5, "Cut");
-        setToolLabel(6, "Paste");
-        setToolLabel(7, "D");
-        setToolLabel(8, "T");
+        setToolButton(0, "forward", ">>");
+        setToolButton(1, "back", "<<");
+        setToolButton(2, "up", "^");
+        setToolButton(3, 0, "v");
+        setToolButton(4, "copy", "Copy");
+        setToolButton(5, "cut", "Cut");
+        setToolButton(6, "paste", "Paste");
+        setToolButton(7, 0, "D");
+        setToolButton(8, 0, "T");
     } else {
         if (toolPage == 4) {
-            setToolLabel(0, "[x]");
-            setToolLabel(1, "x+");
-            setToolLabel(2, "x-");
-            setToolLabel(3, "A");
-            setToolLabel(4, "B");
-            setToolLabel(5, "C");
-            setToolLabel(6, "+");
-            setToolLabel(7, "@");
-            setToolLabel(8, "!");
+            setToolButton(0, 0, "[x]");
+            setToolButton(1, 0, "x+");
+            setToolButton(2, 0, "x-");
+            setToolButton(3, 0, "A");
+            setToolButton(4, 0, "B");
+            setToolButton(5, 0, "C");
+            setToolButton(6, 0, "+");
+            setToolButton(7, 0, "@");
+            setToolButton(8, 0, "!");
         } else {
-            setToolLabel(0, "A/Z");
-            setToolLabel(1, "Hide");
-            setToolLabel(2, "F+");
-            setToolLabel(3, "F@");
-            setToolLabel(4, "F-");
-            setToolLabel(5, "End");
-            setToolLabel(6, "Del");
-            setToolLabel(7, "A+");
-            setToolLabel(8, "A-");
+            setToolButton(0, 0, "A/Z");
+            setToolButton(1, 0, "Hide");
+            setToolButton(2, "find", "F+");
+            setToolButton(3, "find", "F@");
+            setToolButton(4, "close", "F-");
+            setToolButton(5, 0, "End");
+            setToolButton(6, "editdelete", "Del");
+            setToolButton(7, 0, "A+");
+            setToolButton(8, 0, "A-");
         }
     }
-    setToolLabel(9, "...");
+    setToolButton(9, "forward", "...");
     toolBar->update();
 }
 
@@ -313,6 +326,24 @@ void MainWindow::setToolLabel(int index, const char *text)
     if (index < 0 || index >= 10 || !toolButtons[index])
         return;
     toolButtons[index]->setText(text);
+    toolButtons[index]->setTextLabel(text, true);
+    toolButtons[index]->setUsesTextLabel(true);
+    toolButtons[index]->show();
+}
+
+void MainWindow::setToolButton(int index, const char *icon, const char *text)
+{
+    if (index < 0 || index >= 10 || !toolButtons[index])
+        return;
+    toolButtons[index]->setText(text);
+    toolButtons[index]->setTextLabel(text, true);
+    if (icon && Resource::findPixmap(icon) != QString::null) {
+        toolButtons[index]->setPixmap(Resource::loadPixmap(icon));
+        toolButtons[index]->setUsesTextLabel(false);
+    } else {
+        toolButtons[index]->setPixmap(QPixmap());
+        toolButtons[index]->setUsesTextLabel(true);
+    }
     toolButtons[index]->show();
 }
 
@@ -425,12 +456,22 @@ void MainWindow::updateCaption()
         setCaption("Zaurus MDEditor - " + QFileInfo(currentFile).fileName());
 }
 
-QPushButton *MainWindow::makeTopButton(QWidget *parent, const char *text, const char *slot)
+QToolButton *MainWindow::makeTopButton(QWidget *parent, const char *text, const char *icon, const char *slot)
 {
-    QPushButton *button = new QPushButton(text, parent);
+    QToolButton *button = new QToolButton(parent);
     button->setFont(QFont("song", 10));
     button->setFixedSize(70, 30);
-    QObjectList *siblings = parent->queryList("QPushButton");
+    button->setAutoRaise(true);
+    button->setText(text);
+    button->setTextLabel(text, true);
+    if (icon && Resource::findPixmap(icon) != QString::null) {
+        button->setPixmap(Resource::loadPixmap(icon));
+        button->setUsesTextLabel(false);
+    } else {
+        button->setPixmap(QPixmap());
+        button->setUsesTextLabel(true);
+    }
+    QObjectList *siblings = parent->queryList("QToolButton");
     int index = siblings ? siblings->count() - 1 : 0;
     delete siblings;
     button->move(index * 71, 1);
@@ -635,8 +676,27 @@ void MainWindow::showEditor()
 {
     fileBar->hide();
     docBar->show();
-    stack->raiseWidget(editor);
+    if (splitView)
+        splitView->hide();
+    stack->raiseWidget(splitPane);
     modeButton->setText("View");
+    modeButton->setTextLabel("View", true);
+    disconnect(modeButton, SIGNAL(clicked()), this, SLOT(showEditor()));
+    connect(modeButton, SIGNAL(clicked()), this, SLOT(showView()));
+    updateSaveIndicator();
+    touchEditor();
+}
+
+void MainWindow::showSplit()
+{
+    refreshSplit();
+    fileBar->hide();
+    docBar->show();
+    if (splitView)
+        splitView->show();
+    stack->raiseWidget(splitPane);
+    modeButton->setText("View");
+    modeButton->setTextLabel("View", true);
     disconnect(modeButton, SIGNAL(clicked()), this, SLOT(showEditor()));
     connect(modeButton, SIGNAL(clicked()), this, SLOT(showView()));
     updateSaveIndicator();
@@ -651,6 +711,7 @@ void MainWindow::showView()
     docBar->show();
     stack->raiseWidget(view);
     modeButton->setText("Edit");
+    modeButton->setTextLabel("Edit", true);
     disconnect(modeButton, SIGNAL(clicked()), this, SLOT(showView()));
     connect(modeButton, SIGNAL(clicked()), this, SLOT(showEditor()));
 }
@@ -659,6 +720,12 @@ void MainWindow::refreshView()
 {
     QString text = filteredPreviewText(editor->text());
     view->setText(MdParser::toRichText(text, 0), currentFile);
+}
+
+void MainWindow::refreshSplit()
+{
+    QString text = filteredPreviewText(editor->text());
+    splitView->setText(MdParser::toRichText(text, 0), currentFile);
 }
 
 void MainWindow::saveFile()
@@ -1109,6 +1176,7 @@ void MainWindow::applyFontSize()
     QFont f("song", fontSize);
     editor->setFont(f);
     view->setFont(f);
+    splitView->setFont(f);
     browser->setFont(QFont("song", 11));
 }
 
@@ -1117,12 +1185,14 @@ void MainWindow::applyTheme()
     if (!darkTheme) {
         editor->unsetPalette();
         view->unsetPalette();
+        splitView->unsetPalette();
         browser->unsetPalette();
         return;
     }
     QPalette pal(QColor(238, 238, 238), QColor(32, 32, 32));
     editor->setPalette(pal);
     view->setPalette(pal);
+    splitView->setPalette(pal);
     browser->setPalette(pal);
 }
 

@@ -9,7 +9,7 @@
 class QListView;
 class QListViewItem;
 class MdEdit;
-class QPushButton;
+class QToolButton;
 class QWidgetStack;
 class MdView;
 class QButton;
@@ -38,6 +38,7 @@ private slots:
     void showBrowser();
     void showEditor();
     void showView();
+    void showSplit();
     void saveFile();
     void toggleTask(int lineNumber);
     void insertTask();
@@ -117,10 +118,11 @@ private slots:
 
 private:
     void buildUi();
-    QPushButton *makeButton(QWidget *parent, const char *text, const char *slot);
-    QPushButton *makeTopButton(QWidget *parent, const char *text, const char *slot);
+    QToolButton *makeButton(QWidget *parent, const char *text, const char *slot);
+    QToolButton *makeTopButton(QWidget *parent, const char *text, const char *icon, const char *slot);
     void rebuildToolBar();
     void setToolLabel(int index, const char *text);
+    void setToolButton(int index, const char *icon, const char *text);
     void runTool(int index);
     void layoutToolButtons();
     void layoutTopBars();
@@ -134,6 +136,7 @@ private:
     void openFileInNewWindow(const QString &path);
     bool isEditableFileName(const QString &name) const;
     void refreshView();
+    void refreshSplit();
     QString selectedText() const;
     void replaceSelectionOrInsert(const QString &text);
     void wrapSelection(const QString &before, const QString &after);
@@ -168,14 +171,17 @@ private:
     QListView *browser;
     FileSelector *documentSelector;
     QWidgetStack *stack;
+    QWidget *splitPane;
     MdEdit *editor;
     MdView *view;
-    QPushButton *modeButton;
+    MdView *splitView;
+    QToolButton *modeButton;
+    QToolButton *splitButton;
     QLabel *saveIndicator;
     QWidget *fileBar;
     QWidget *docBar;
     QWidget *toolBar;
-    QPushButton *toolButtons[10];
+    QToolButton *toolButtons[10];
     QTimer *autosaveTimer;
     QString lastFind;
     QString todoFilter;

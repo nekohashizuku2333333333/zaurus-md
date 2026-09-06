@@ -2,7 +2,7 @@
 set -eu
 
 APP=zaurusmd
-VER=0.8
+VER=0.9
 IPKDIR=IPK
 
 sh scripts/build-repair.sh
