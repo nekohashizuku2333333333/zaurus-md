@@ -78,6 +78,7 @@ MainWindow::MainWindow(QWidget *parent, const char *name, WFlags flags)
       todoButton(0),
       splitButton(0),
       linesButton(0),
+      themeButton(0),
       saveIndicator(0),
       fileBar(0),
       docBar(0),
@@ -117,10 +118,11 @@ void MainWindow::buildUi()
     docBar = new QWidget(root);
     docBar->setFixedHeight(32);
     makeTopButton(docBar, "Open", "fileopen", SLOT(showBrowser()));
-    modeButton = makeTopButton(docBar, "View", "TextEditor", SLOT(showView()));
+    modeButton = makeTopButton(docBar, "Preview", "TextEditor", SLOT(showView()));
     splitButton = makeTopButton(docBar, "Split", "forward", SLOT(showSplit()));
     todoButton = makeTopButton(docBar, "Todo", "todo", SLOT(showTodo()));
     makeTopButton(docBar, "Save", "Save", SLOT(saveFile()));
+    themeButton = makeTopButton(docBar, "Sun", 0, SLOT(toggleTheme()));
     saveIndicator = new QLabel("", docBar);
     saveIndicator->setFont(QFont("song", 10));
     saveIndicator->setAlignment(AlignRight | AlignVCenter);
@@ -295,6 +297,12 @@ void MainWindow::layoutTopBars()
             w = 240;
         saveIndicator->setGeometry(w - 122, 1, 118, 30);
     }
+    if (themeButton && saveIndicator) {
+        int x = saveIndicator->x() - 71;
+        if (x < 0)
+            x = 0;
+        themeButton->move(x, 1);
+    }
 }
 
 void MainWindow::updateDocButtons()
@@ -305,19 +313,28 @@ void MainWindow::updateDocButtons()
     if (!buttons)
         return;
     int x = 0;
+    int rightLimit = saveIndicator ? saveIndicator->x() - 72 : width();
+    if (rightLimit < 0)
+        rightLimit = width();
     for (uint i = 0; i < buttons->count(); ++i) {
         QToolButton *button = (QToolButton *)buttons->at(i);
         if (!button)
             continue;
+        if (button == themeButton)
+            continue;
         bool show = true;
         if (button == splitButton)
-            show = false;
+            show = !currentFile.isEmpty() && !isMarkdownTodoFile() &&
+                   !(todoPane && stack && stack->visibleWidget() == todoPane) &&
+                   !(view && stack && stack->visibleWidget() == view);
         if (button == modeButton && isMarkdownTodoFile())
             show = false;
         if (button == linesButton && todoPane && stack && stack->visibleWidget() == todoPane)
             show = false;
         if (button == todoButton)
             show = isMarkdownTodoFile();
+        if (show && x + 70 > rightLimit)
+            show = false;
         if (show) {
             if (button == todoButton && todoPane && stack && stack->visibleWidget() == todoPane)
                 setTopButtonIcon(button, "TextEditor", "Source");
@@ -331,6 +348,10 @@ void MainWindow::updateDocButtons()
         }
     }
     delete buttons;
+    if (themeButton) {
+        setTopButtonIcon(themeButton, 0, darkTheme ? "Moon" : "Sun");
+        themeButton->show();
+    }
 }
 
 void MainWindow::layoutToolButtons()
@@ -375,13 +396,13 @@ bool MainWindow::confirmSaveIfNeeded()
 void MainWindow::rebuildToolBar()
 {
     if (view && stack && stack->visibleWidget() == view) {
-        setToolButton(0, "TextEditor", "Edit");
-        setToolButton(1, isMarkdownTodoFile() ? "todo" : 0, isMarkdownTodoFile() ? "Todo" : "");
-        setToolButton(2, "fileopen", "Open");
-        setToolButton(3, "Save", "Save");
-        setToolButton(4, 0, "A+");
-        setToolButton(5, 0, "A-");
-        setToolButton(6, 0, "Sun");
+        setToolButton(0, 0, "A+");
+        setToolButton(1, 0, "A-");
+        setToolButton(2, 0, "");
+        setToolButton(3, 0, "");
+        setToolButton(4, 0, "");
+        setToolButton(5, 0, "");
+        setToolButton(6, 0, "");
         setToolButton(7, 0, "");
         setToolButton(8, 0, "");
         setToolButton(9, 0, "");
@@ -525,13 +546,8 @@ void MainWindow::nextToolPage()
 void MainWindow::runTool(int index)
 {
     if (view && stack && stack->visibleWidget() == view) {
-        if (index == 0) showEditor();
-        else if (index == 1 && isMarkdownTodoFile()) showTodo();
-        else if (index == 2) showBrowser();
-        else if (index == 3) saveFile();
-        else if (index == 4) fontBigger();
-        else if (index == 5) fontSmaller();
-        else if (index == 6) toggleTheme();
+        if (index == 0) fontBigger();
+        else if (index == 1) fontSmaller();
         return;
     }
     if (todoPane && stack && stack->visibleWidget() == todoPane) {
@@ -913,8 +929,7 @@ void MainWindow::showEditor()
     if (splitView)
         splitView->hide();
     stack->raiseWidget(splitPane);
-    modeButton->setText("View");
-    modeButton->setTextLabel("View", true);
+    setTopButtonIcon(modeButton, "TextEditor", "Preview");
     disconnect(modeButton, SIGNAL(clicked()), this, SLOT(showEditor()));
     connect(modeButton, SIGNAL(clicked()), this, SLOT(showView()));
     rebuildToolBar();
@@ -930,8 +945,7 @@ void MainWindow::showSplit()
     if (splitView)
         splitView->show();
     stack->raiseWidget(splitPane);
-    modeButton->setText("View");
-    modeButton->setTextLabel("View", true);
+    setTopButtonIcon(modeButton, "TextEditor", "Preview");
     disconnect(modeButton, SIGNAL(clicked()), this, SLOT(showEditor()));
     connect(modeButton, SIGNAL(clicked()), this, SLOT(showView()));
     rebuildToolBar();
@@ -946,8 +960,7 @@ void MainWindow::showView()
     fileBar->hide();
     docBar->show();
     stack->raiseWidget(view);
-    modeButton->setText("Edit");
-    modeButton->setTextLabel("Edit", true);
+    setTopButtonIcon(modeButton, "TextEditor", "Edit");
     disconnect(modeButton, SIGNAL(clicked()), this, SLOT(showView()));
     connect(modeButton, SIGNAL(clicked()), this, SLOT(showEditor()));
     rebuildToolBar();
@@ -2330,6 +2343,10 @@ void MainWindow::fontBigger()
     if (fontSize < 22)
         ++fontSize;
     applyFontSize();
+    if (view && stack && stack->visibleWidget() == view)
+        refreshView();
+    if (splitView && splitView->isVisible())
+        refreshSplit();
 }
 
 void MainWindow::fontSmaller()
@@ -2337,12 +2354,21 @@ void MainWindow::fontSmaller()
     if (fontSize > 8)
         --fontSize;
     applyFontSize();
+    if (view && stack && stack->visibleWidget() == view)
+        refreshView();
+    if (splitView && splitView->isVisible())
+        refreshSplit();
 }
 
 void MainWindow::toggleTheme()
 {
     darkTheme = !darkTheme;
     applyTheme();
+    updateDocButtons();
+    if (view && stack && stack->visibleWidget() == view)
+        refreshView();
+    if (splitView && splitView->isVisible())
+        refreshSplit();
 }
 
 void MainWindow::todoProject()

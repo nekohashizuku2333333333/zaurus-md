@@ -208,6 +208,7 @@ private:
     QToolButton *todoButton;
     QToolButton *splitButton;
     QToolButton *linesButton;
+    QToolButton *themeButton;
     QLabel *saveIndicator;
     QWidget *fileBar;
     QWidget *docBar;
