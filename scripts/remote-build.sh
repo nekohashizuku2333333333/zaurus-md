@@ -18,7 +18,8 @@ tar czf "$UPLOAD" \
 scp $SSH_OPTS "$UPLOAD" "$REMOTE:$BASE/src.tar.gz"
 ssh $SSH_OPTS "$REMOTE" "cd '$BASE' && tar xzf src.tar.gz && rm -f src.tar.gz"
 scp $SSH_OPTS -r "$MURPHY/lib"/. "$REMOTE:$BASE/compat-lib/"
-ssh $SSH_OPTS "$REMOTE" "cd '$BASE' && ./scripts/build-remote-nomake.sh"
+ssh $SSH_OPTS "$REMOTE" "cd '$BASE' && BUILD_PACKAGE=0 ./scripts/build-remote-nomake.sh"
 mkdir -p "$ROOT/DIST"
-scp $SSH_OPTS "$REMOTE:$BASE/DIST/zaurusmd_0.1_arm.ipk" "$ROOT/DIST/"
+scp $SSH_OPTS "$REMOTE:$BASE/DIST/zaurusmd" "$ROOT/DIST/"
+(cd "$ROOT" && ./scripts/build-ipk.sh)
 rm -f "$UPLOAD"

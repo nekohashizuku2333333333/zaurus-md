@@ -35,6 +35,13 @@ The current milestone is a compact Markor-style Markdown notebook:
   window width, which is safer under Qtopia magnified display mode
 - explicit `song` QPF font selection for the app, editor, preview, browser,
   and toolbar controls
+- editor soft wrapping follows the available widget width, including font size
+  and line-number margin changes; saved text keeps its original newlines
+- the document bar's `Lines` toggle shows source line numbers; wrapped
+  continuation rows do not receive new numbers, and commands use source positions
+- fenced code is rendered as one preformatted block without visible fences;
+  backtick/tilde fences, CRLF, blank lines, indentation, unfinished fences,
+  escaped punctuation and multi-backtick inline code are handled
 - Markdown to Qt rich text conversion with headings, inline strong/emphasis,
   code, links, images, strikeout, quotes, rules, bullet lists, numbered lists,
   and task links
@@ -65,3 +72,11 @@ base for manual device testing.
 
 The script uses the old SSH algorithms required by the SDK host and builds
 with GCC 2.95.3, Qt/E 2.3.2 headers, and Qtopia 1.7 headers.
+The executable is downloaded and packaged locally because the SDK host's tar
+does not support the reproducible timestamp option. IPKs remain gzip-compressed
+GNU tar archives without PAX headers.
+
+On the SDK host, run `sh scripts/test-remote.sh` from the source directory for
+ARM/QEMU parser regression tests. The test-only runtime helper library is not
+included in the application package. Visual line-number alignment and touch
+interaction still require a device check at 640x480 and in magnified mode.

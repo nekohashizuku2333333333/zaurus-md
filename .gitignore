@@ -5,4 +5,4 @@ control.tar.gz
 data.tar.gz
 debian-binary
 DIST/zaurusmd
-
+test-runtime/

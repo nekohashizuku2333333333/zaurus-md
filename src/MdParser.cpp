@@ -13,6 +13,8 @@ QString MdParser::escape(const QString &text)
             out += "&lt;";
         else if (c == '>')
             out += "&gt;";
+        else if (c == '"')
+            out += "&quot;";
         else
             out += c;
     }
@@ -24,6 +26,12 @@ QString MdParser::inlineRich(const QString &text)
     QString out;
     uint i = 0;
     while (i < text.length()) {
+        if (text[i] == '\\' && i + 1 < text.length()
+            && QString("\\`*_{}[]()#+-.!>~|").find(text[i + 1]) >= 0) {
+            out += escape(text.mid(i + 1, 1));
+            i += 2;
+            continue;
+        }
         if (i + 1 < text.length() && text[i] == '!' && text[i + 1] == '[') {
             int close = text.find("](", i + 2);
             if (close > (int)i) {
@@ -38,12 +46,23 @@ QString MdParser::inlineRich(const QString &text)
             }
         }
         if (text[i] == '`') {
-            int end = text.find('`', i + 1);
+            uint count = 1;
+            while (i + count < text.length() && text[i + count] == '`') ++count;
+            QString delimiter = text.mid(i, count);
+            int end = text.find(delimiter, i + count);
+            while (end >= 0 && end + count < text.length() && text[end + count] == '`') {
+                int next = end + count;
+                while (next < (int)text.length() && text[next] == '`') ++next;
+                end = text.find(delimiter, next);
+            }
             if (end > (int)i) {
-                out += "<font color=\"#5b5b5b\"><tt>" + escape(text.mid(i + 1, end - i - 1)) + "</tt></font>";
-                i = end + 1;
+                out += "<tt>" + escape(text.mid(i + count, end - i - count)) + "</tt>";
+                i = end + count;
                 continue;
             }
+            out += delimiter;
+            i += count;
+            continue;
         }
         if (text[i] == '[') {
             int close = text.find("](", i + 1);
@@ -88,18 +107,17 @@ QString MdParser::inlineRich(const QString &text)
 
 bool MdParser::isTaskLine(const QString &line, int *boxPos, bool *checked)
 {
-    int p = line.find("[ ]");
-    if (p < 0) {
-        p = line.find("[x]");
-        if (p < 0)
-            p = line.find("[X]");
-        if (p < 0)
-            return false;
-        if (checked)
-            *checked = true;
-    } else if (checked) {
-        *checked = false;
-    }
+    int p = 0;
+    while (p < (int)line.length() && line[p].isSpace()) ++p;
+    if (p + 1 >= (int)line.length()
+        || (line[p] != '-' && line[p] != '*' && line[p] != '+')
+        || !line[p + 1].isSpace()) return false;
+    p += 2;
+    while (p < (int)line.length() && line[p].isSpace()) ++p;
+    QString box = line.mid(p, 3);
+    if (box != "[ ]" && box != "[x]" && box != "[X]") return false;
+    if (p + 3 < (int)line.length() && !line[p + 3].isSpace()) return false;
+    if (checked) *checked = box != "[ ]";
     if (boxPos)
         *boxPos = p;
     return true;
@@ -110,9 +128,14 @@ QString MdParser::toRichText(const QString &markdown, QValueList<MdBlockMap> *ma
     QStringList lines = QStringList::split('\n', markdown, true);
     QString html = "<html><body>";
     bool inCode = false;
+    bool inIndentedCode = false;
+    QChar fenceChar = '`';
+    int fenceLength = 0;
+    int fenceIndent = 0;
     int richBlock = 0;
     bool inUl = false;
     bool inOl = false;
+    if (map) map->clear();
 
     for (uint i = 0; i < lines.count(); ++i) {
         QString line = lines[i];
@@ -123,7 +146,36 @@ QString MdParser::toRichText(const QString &markdown, QValueList<MdBlockMap> *ma
         if (map)
             map->append(bm);
 
-        if (line.left(3) == "```") {
+        if (line.right(1) == "\r") line.truncate(line.length() - 1);
+        int indent = 0;
+        while (indent < (int)line.length() && line[indent] == ' ') ++indent;
+        QString trimmed = line.mid(indent);
+        bool indented = indent >= 4 || line.left(1) == "\t";
+        if (inIndentedCode) {
+            if (indented || trimmed.isEmpty()) {
+                html += escape(line.mid(indent >= 4 ? 4 : (line.left(1) == "\t" ? 1 : 0))) + "\n";
+                continue;
+            }
+            html += "</pre>";
+            inIndentedCode = false;
+        }
+        int fence = 0;
+        if (indent <= 3 && !trimmed.isEmpty()
+            && (trimmed[0] == '`' || trimmed[0] == '~')) {
+            while (fence < (int)trimmed.length() && trimmed[fence] == trimmed[0]) ++fence;
+        }
+        if (inCode) {
+            if (fence >= fenceLength && trimmed[0] == fenceChar
+                && trimmed.mid(fence).stripWhiteSpace().isEmpty()) {
+                html += "</pre>";
+                inCode = false;
+            } else {
+                int remove = indent < fenceIndent ? indent : fenceIndent;
+                html += escape(line.mid(remove)) + "\n";
+            }
+            continue;
+        }
+        if (fence >= 3 && (trimmed[0] != '`' || trimmed.mid(fence).find('`') < 0)) {
             if (inUl) {
                 html += "</ul>";
                 inUl = false;
@@ -132,12 +184,16 @@ QString MdParser::toRichText(const QString &markdown, QValueList<MdBlockMap> *ma
                 html += "</ol>";
                 inOl = false;
             }
-            inCode = !inCode;
-            html += "<pre>" + escape(line) + "</pre>";
+            inCode = true;
+            fenceChar = trimmed[0];
+            fenceLength = fence;
+            fenceIndent = indent;
+            html += "<pre>";
             continue;
         }
-        if (inCode) {
-            html += "<pre>" + escape(line) + "</pre>";
+        if (indented && !inUl && !inOl) {
+            html += "<pre>" + escape(line.mid(indent >= 4 ? 4 : 1)) + "\n";
+            inIndentedCode = true;
             continue;
         }
         if (line.isEmpty()) {
@@ -261,6 +317,8 @@ QString MdParser::toRichText(const QString &markdown, QValueList<MdBlockMap> *ma
         html += "</ul>";
     if (inOl)
         html += "</ol>";
+    if (inCode || inIndentedCode)
+        html += "</pre>";
     html += "</body></html>";
     return html;
 }

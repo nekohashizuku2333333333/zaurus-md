@@ -42,4 +42,6 @@ done
   src/TodoTxt.o src/FileUtil.o moc_MainWindow.o moc_MdEdit.o moc_MdView.o \
   $LIBS
 
-./scripts/build-ipk.sh
+if [ "${BUILD_PACKAGE:-1}" = 1 ]; then
+    ./scripts/build-ipk.sh
+fi
